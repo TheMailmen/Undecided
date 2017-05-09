@@ -11,8 +11,20 @@ using UIKit;
 
 namespace Undecided
 {
-    [Register ("HomeController")]
-    partial class HomeController
-    {
-    }
+	[Register("HomeController")]
+	partial class HomeController
+	{
+		[Outlet]
+		[GeneratedCode("iOS Designer", "1.0")]
+		UIKit.UILabel lblWelcome { get; set; }
+
+		void ReleaseDesignerOutlets()
+		{
+			if (lblWelcome != null)
+			{
+				lblWelcome.Dispose();
+				lblWelcome = null;
+			}
+		}
+	}
 }

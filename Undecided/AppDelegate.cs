@@ -1,5 +1,6 @@
 ﻿using Foundation;
 using UIKit;
+using Parse;
 
 namespace Undecided
 {
@@ -9,6 +10,17 @@ namespace Undecided
 	public class AppDelegate : UIApplicationDelegate
 	{
 		// class-level declarations
+		public AppDelegate()
+		{
+			// Initialize the Parse client with your Application ID and .NET Key found on your Parse dashboard
+			// get the App ID and .NET Key from Parse and substitute the text below accordingly
+			//ParseClient.Initialize("marquette-coba-app-3", "marquette-coba-master-3");
+			ParseClient.Initialize(new ParseClient.Configuration
+			{
+				ApplicationId = "marquette-coba-app-4",
+				Server = "https://muparseserver4.azurewebsites.net/parse/"
+			});
+		}
 
 		public override UIWindow Window
 		{

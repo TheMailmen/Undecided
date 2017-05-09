@@ -11,8 +11,11 @@ using UIKit;
 
 namespace Undecided
 {
-    [Register ("NavigationController")]
-    partial class NavigationController
-    {
-    }
+	[Register("NavigationController")]
+	partial class NavigationController
+	{
+		void ReleaseDesignerOutlets()
+		{
+		}
+	}
 }
