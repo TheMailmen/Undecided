@@ -15,7 +15,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 from openpyxl import Workbook
 import config
 from engine import build_qpl_fact
+from sheets.how_to_use import build as build_how_to_use
 from sheets.full_pl import build as build_full_pl
+from sheets.t12_pl import build as build_t12_pl
+from sheets.tic_ownership import build as build_tic_ownership
 
 
 def main():
@@ -61,8 +64,14 @@ def main():
     cfg['qpl_rows'] = qpl_rows
     
     # 2. Build visible sheets in order
+    print("Building How To Use...")
+    build_how_to_use(wb, cfg)
     print("Building Full P&L...")
     build_full_pl(wb, cfg)
+    print("Building T12 P&L...")
+    build_t12_pl(wb, cfg)
+    print("Building TIC Ownership...")
+    build_tic_ownership(wb, cfg)
     print(f"Engine built with {qpl_rows} rows.")
 
     # Remaining sheets (uncomment as implemented):
