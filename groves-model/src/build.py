@@ -33,7 +33,8 @@ from sheets.refi_stress      import build as build_refi_stress
 from sheets.rent_comps       import build as build_rent_comps
 
 
-def main():
+def main(cfg_override=None):
+    """Build the model. If cfg_override is provided, use it instead of config.py."""
     data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
     out_dir  = os.path.join(os.path.dirname(__file__), '..', 'output')
     os.makedirs(out_dir, exist_ok=True)
@@ -57,19 +58,24 @@ def main():
     wb.remove(wb.active)
 
     # Config dict passed to all sheet modules
-    cfg = {
-        'property':      config.PROPERTY,
-        'unit_mix':      config.UNIT_MIX,
-        'loan':          config.LOAN,
-        'tic':           config.TIC,
-        'total_equity':  config.TOTAL_EQUITY,
-        'valuation':     config.VALUATION,
-        'escrow_names':  config.ESCROW_NAMES,
-        'refi':          config.REFI,
-        'coa':           config.CHART_OF_ACCOUNTS,
-        'subtotals':     config.SUBTOTAL_FORMULAS,
-        'purchase_price': config.PROPERTY['purchase_price'],
-    }
+    if cfg_override is not None:
+        cfg = dict(cfg_override)
+        cfg.setdefault('coa', config.CHART_OF_ACCOUNTS)
+        cfg.setdefault('subtotals', config.SUBTOTAL_FORMULAS)
+    else:
+        cfg = {
+            'property':      config.PROPERTY,
+            'unit_mix':      config.UNIT_MIX,
+            'loan':          config.LOAN,
+            'tic':           config.TIC,
+            'total_equity':  config.TOTAL_EQUITY,
+            'valuation':     config.VALUATION,
+            'escrow_names':  config.ESCROW_NAMES,
+            'refi':          config.REFI,
+            'coa':           config.CHART_OF_ACCOUNTS,
+            'subtotals':     config.SUBTOTAL_FORMULAS,
+            'purchase_price': config.PROPERTY['purchase_price'],
+        }
 
     # 1. Hidden engine table
     print("Building qPL_Fact engine...")
