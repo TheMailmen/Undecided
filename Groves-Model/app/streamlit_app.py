@@ -60,7 +60,8 @@ st.markdown(
     "- **Dashboard** — KPI cards and interactive charts\n"
     "- **Assumptions** — Edit model assumptions with live recalculation\n"
     "- **Upload Data** — Upload new CSV data files\n"
-    "- **Download Excel** — Generate and download the formatted Excel model"
+    "- **Download Excel** — Generate and download the formatted Excel model\n"
+    "- **P&L Viewer** — Clean tabbed P&L with Executive Summary, T-12, Full P&L, and Distribution Model"
 )
 
 st.caption(
