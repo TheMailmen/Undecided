@@ -1,0 +1,19 @@
+Section,Num,Property,Address,Built,AvgSF,Rent,RentPerSF
+ONE BEDROOM RENT COMPARABLES,#,Property,Address,Built,Avg SF,Avg Rent,Avg $/SF,Occ %
+ONE BEDROOM RENT COMPARABLES,1,Fountains in the Park,"5700 73rd Ave N, Brooklyn Park",1976,784,1305,1.66,0.95
+ONE BEDROOM RENT COMPARABLES,2,Ridgebrook Apartments,"5840 73rd Ave N, Brooklyn Park",1969,847,1150,1.36,0.87
+ONE BEDROOM RENT COMPARABLES,3,Park Place Off Broadway,"7136 60th Ave N, New Hope",1961,650,1179,1.81,1
+ONE BEDROOM RENT COMPARABLES,4,Eden Park Apartments,"6455 Zane Ave N, Brooklyn Park",1971,670,1124,1.68,0.94
+ONE BEDROOM RENT COMPARABLES,5,Garden Gates,"6402 Douglas Dr N, Brooklyn Park",1966,750,1169,1.56,1
+TWO BEDROOM RENT COMPARABLES,#,Property,Address,Built,Avg SF,Avg Rent,Avg $/SF,Occ %
+TWO BEDROOM RENT COMPARABLES,1,Fountains in the Park,"5700 73rd Ave N, Brooklyn Park",1976,950,1495,1.57,0.95
+TWO BEDROOM RENT COMPARABLES,2,Ridgebrook Apartments,"5840 73rd Ave N, Brooklyn Park",1969,954,1450,1.52,0.87
+TWO BEDROOM RENT COMPARABLES,3,Park Place Off Broadway,"7136 60th Ave N, New Hope",1961,750,1449,1.93,1
+TWO BEDROOM RENT COMPARABLES,4,Eden Park Apartments,"6455 Zane Ave N, Brooklyn Park",1971,900,1451,1.61,0.94
+TWO BEDROOM RENT COMPARABLES,5,Garden Gates,"6402 Douglas Dr N, Brooklyn Park",1966,950,1390,1.46,1
+SALE COMPARABLES,#,Property,Address,COE,Units,Sale Price,$/Unit,Built
+SALE COMPARABLES,1,River Glen,"507 70th Ave N, Brooklyn Center",Dec-25,128,14000000,109375,1971
+SALE COMPARABLES,2,Sunset Apartments,"2701 Xylon Ave N, New Hope",Dec-25,32,3575000,111719,1970
+SALE COMPARABLES,3,Twin Lakes,"4259 W Broadway Ave, Robbinsdale",Aug-25,31,3475000,112097,1971
+SALE COMPARABLES,4,Crest Oak,"9900 Bluebird St NW, Coon Rapids",Jan-25,60,7300000,121667,1973
+SALE COMPARABLES,5,Valley Place,"7201 36th Ave N, Crystal",Nov-24,71,8911549,125515,1971
