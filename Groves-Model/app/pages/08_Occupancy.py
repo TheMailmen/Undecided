@@ -10,8 +10,8 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT
-from ui.components import page_header, section_header, spacer
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, PLOTLY_COLORS
+from ui.components import page_header, kpi_row, section_header, spacer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -74,49 +74,39 @@ rent_growth_total = (latest_avg / first_avg - 1) if first_avg else 0
 prev_occ = occupancy_pcts[-2] if len(occupancy_pcts) > 1 else latest_occ
 prev_avg = avg_rents[-2] if len(avg_rents) > 1 else latest_avg
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric(
-    "Current Occupancy",
-    f"{latest_occ * 100:.1f}%",
-    delta=f"{(latest_occ - prev_occ) * 100:.1f}pp" if latest_occ != prev_occ else None,
-)
-col2.metric(
-    "Avg In-Place Rent",
-    f"${latest_avg:,.0f}",
-    delta=f"${latest_avg - prev_avg:,.0f}" if latest_avg != prev_avg else None,
-)
-col3.metric(
-    "Vacant Units",
-    f"{UNITS - occupied_counts[-1]}",
-)
-col4.metric(
-    "Rent Growth (Since Acq.)",
-    f"{rent_growth_total * 100:.1f}%",
-)
+kpi_row([
+    {"label": "Current Occupancy", "value": f"{latest_occ * 100:.1f}%",
+     "delta": f"{(latest_occ - prev_occ) * 100:.1f}pp" if latest_occ != prev_occ else None},
+    {"label": "Avg In-Place Rent", "value": f"${latest_avg:,.0f}",
+     "delta": f"${latest_avg - prev_avg:,.0f}" if latest_avg != prev_avg else None},
+    {"label": "Vacant Units", "value": f"{UNITS - occupied_counts[-1]}"},
+    {"label": "Rent Growth (Since Acq.)", "value": f"{rent_growth_total * 100:.1f}%"},
+])
 
-st.divider()
+spacer(8)
 
 # ── Chart 1: Occupancy Trend ─────────────────────────────────────
-st.subheader("Physical Occupancy Trend")
+section_header("Physical Occupancy Trend")
 
 fig_occ = go.Figure()
 fig_occ.add_trace(go.Scatter(
     x=month_labels, y=[o * 100 for o in occupancy_pcts],
     mode='lines+markers', name='Occupancy %',
-    line=dict(color='#1B4F72', width=2.5),
+    line=dict(color=COLORS["accent"], width=2.5),
     marker=dict(size=6),
-    fill='tozeroy', fillcolor='rgba(27,79,114,0.1)',
+    fill='tozeroy', fillcolor='rgba(47,143,157,0.08)',
 ))
-fig_occ.add_hline(y=95, line_dash="dash", line_color="#1E8449",
+fig_occ.add_hline(y=95, line_dash="dash", line_color=COLORS["success"],
                   annotation_text="95% target", opacity=0.6)
 fig_occ.update_layout(
-    height=300, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=300,
     yaxis_title="Occupancy %", yaxis_range=[80, 102],
 )
 st.plotly_chart(fig_occ, use_container_width=True)
 
 # ── Occupancy by Building ────────────────────────────────────────
-st.subheader("Occupancy by Building")
+section_header("Occupancy by Building")
 
 # Identify buildings from unit prefixes
 rr_units = rr_df['Unit'].tolist()
@@ -142,27 +132,26 @@ for m in months:
 bldg_occ_df = pd.DataFrame(bldg_occ_data)
 
 fig_bldg = go.Figure()
-bldg_colors = ['#1B4F72', '#1E8449', '#C00000', '#D4AC0D', '#7F8C8D']
 for i, b in enumerate(building_ids):
     bdf = bldg_occ_df[bldg_occ_df['Building'] == bldg_labels_map[b]]
     fig_bldg.add_trace(go.Scatter(
         x=bdf['Month'], y=bdf['Occupancy'],
         mode='lines+markers', name=bldg_labels_map[b],
-        line=dict(color=bldg_colors[i % len(bldg_colors)], width=2),
+        line=dict(color=PLOTLY_COLORS[i % len(PLOTLY_COLORS)], width=2),
         marker=dict(size=5),
     ))
-fig_bldg.add_hline(y=95, line_dash="dash", line_color="#1E8449",
+fig_bldg.add_hline(y=95, line_dash="dash", line_color=COLORS["success"],
                     annotation_text="95% target", opacity=0.5)
 fig_bldg.update_layout(
-    height=350, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=350,
     yaxis_title="Occupancy %", yaxis_range=[75, 102],
-    legend=dict(orientation='h', yanchor='bottom', y=1.02),
 )
 st.plotly_chart(fig_bldg, use_container_width=True)
 
 # ── Move-In / Move-Out Net Absorption ────────────────────────────
-st.subheader("Move-Ins & Move-Outs (Net Absorption)")
-st.caption("Tracks unit turnover and net absorption each month.")
+section_header("Move-Ins & Move-Outs (Net Absorption)",
+               "Tracks unit turnover and net absorption each month")
 
 move_ins = []
 move_outs = []
@@ -188,22 +177,22 @@ with left_abs:
     fig_moves = go.Figure()
     fig_moves.add_trace(go.Bar(
         x=absorption_labels, y=move_ins,
-        name='Move-Ins', marker_color='#1E8449', opacity=0.8,
+        name='Move-Ins', marker_color=COLORS["success"], opacity=0.8,
     ))
     fig_moves.add_trace(go.Bar(
         x=absorption_labels, y=[-o for o in move_outs],
-        name='Move-Outs', marker_color='#C00000', opacity=0.8,
+        name='Move-Outs', marker_color=COLORS["error"], opacity=0.8,
     ))
-    fig_moves.add_hline(y=0, line_color="#7F8C8D", opacity=0.3)
+    fig_moves.add_hline(y=0, line_color=COLORS["muted"], opacity=0.3)
     fig_moves.update_layout(
-        height=350, margin=dict(l=0, r=0, t=30, b=0),
+        **PLOTLY_LAYOUT,
+        height=350,
         yaxis_title="Units", barmode='relative',
-        legend=dict(orientation='h', yanchor='bottom', y=1.02),
     )
     st.plotly_chart(fig_moves, use_container_width=True)
 
 with right_abs:
-    net_colors = ['#1E8449' if v >= 0 else '#C00000' for v in net_absorption]
+    net_colors = [COLORS["success"] if v >= 0 else COLORS["error"] for v in net_absorption]
     fig_net = go.Figure()
     fig_net.add_trace(go.Bar(
         x=absorption_labels, y=net_absorption,
@@ -211,10 +200,11 @@ with right_abs:
         text=[f"+{v}" if v > 0 else str(v) for v in net_absorption],
         textposition='outside',
     ))
-    fig_net.add_hline(y=0, line_color="#7F8C8D", opacity=0.3)
+    fig_net.add_hline(y=0, line_color=COLORS["muted"], opacity=0.3)
     fig_net.update_layout(
+        **PLOTLY_LAYOUT,
         title="Net Absorption",
-        height=350, margin=dict(l=0, r=0, t=50, b=0),
+        height=350,
         yaxis_title="Net Units",
     )
     st.plotly_chart(fig_net, use_container_width=True)
@@ -224,17 +214,18 @@ total_move_ins = sum(move_ins)
 total_move_outs = sum(move_outs)
 turnover_rate = total_move_outs / UNITS * 100
 
-tc1, tc2, tc3, tc4 = st.columns(4)
-tc1.metric("Total Move-Ins", f"{total_move_ins}")
-tc2.metric("Total Move-Outs", f"{total_move_outs}")
-tc3.metric("Net Absorption", f"{total_move_ins - total_move_outs:+d}")
-tc4.metric("Turnover Rate", f"{turnover_rate:.1f}%")
+kpi_row([
+    {"label": "Total Move-Ins", "value": str(total_move_ins)},
+    {"label": "Total Move-Outs", "value": str(total_move_outs)},
+    {"label": "Net Absorption", "value": f"{total_move_ins - total_move_outs:+d}"},
+    {"label": "Turnover Rate", "value": f"{turnover_rate:.1f}%"},
+])
 
-st.divider()
+spacer(8)
 
 # ── Unit-Level Occupancy Heatmap ─────────────────────────────────
-st.subheader("Unit-Level Occupancy Grid")
-st.caption("Green = occupied, Red = vacant. Select a building or view all.")
+section_header("Unit-Level Occupancy Grid",
+               "Green = occupied, Red = vacant. Select a building or view all.")
 
 occ_matrix = rr_df.set_index('Unit')[months].astype(float)
 occ_binary = (occ_matrix > 0).astype(int)
@@ -269,28 +260,28 @@ fig_heat = go.Figure(data=go.Heatmap(
     z=display_matrix.values,
     x=heatmap_month_labels,
     y=display_matrix.index.tolist(),
-    colorscale=[[0, '#C00000'], [1, '#1E8449']],
+    colorscale=[[0, COLORS["error"]], [1, COLORS["success"]]],
     showscale=False,
     text=hover_text,
     hovertemplate='%{text}<extra></extra>',
     xgap=1, ygap=1,
 ))
 fig_heat.update_layout(
+    **PLOTLY_LAYOUT,
     height=max(400, len(display_matrix) * 14),
-    margin=dict(l=0, r=0, t=30, b=0),
-    yaxis=dict(dtick=1, autorange='reversed'),
+    yaxis=dict(dtick=1, autorange='reversed', gridcolor="#F3F4F6"),
 )
 st.plotly_chart(fig_heat, use_container_width=True)
 
-st.divider()
+spacer(8)
 
 # ── Chart 2: Average Rent Trend ──────────────────────────────────
-st.subheader("Average In-Place Rent")
+section_header("Average In-Place Rent")
 
 fig_rent = go.Figure()
 fig_rent.add_trace(go.Bar(
     x=month_labels, y=avg_rents,
-    name='Avg Rent', marker_color='#1E8449', opacity=0.7,
+    name='Avg Rent', marker_color=COLORS["success"], opacity=0.7,
 ))
 
 # Add market rent lines
@@ -300,11 +291,12 @@ weighted_market = sum(
 ) / sum(v['count'] for v in unit_mix.values())
 
 fig_rent.add_hline(
-    y=weighted_market, line_dash="dash", line_color="#C00000",
+    y=weighted_market, line_dash="dash", line_color=COLORS["error"],
     annotation_text=f"Wtd Market: ${weighted_market:,.0f}", opacity=0.7,
 )
 fig_rent.update_layout(
-    height=300, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=300,
     yaxis_title="$/Month",
 )
 st.plotly_chart(fig_rent, use_container_width=True)
@@ -313,56 +305,53 @@ st.plotly_chart(fig_rent, use_container_width=True)
 left_col, right_col = st.columns(2)
 
 with left_col:
-    st.subheader("Total Rent Collected")
+    section_header("Total Rent Collected")
     fig_total = go.Figure()
     fig_total.add_trace(go.Bar(
         x=month_labels, y=total_rent_collected,
-        marker_color='#1B4F72', opacity=0.8,
+        marker_color=COLORS["accent"], opacity=0.8,
     ))
 
     # GPR line (all units at market)
     gpr = sum(v['market_rent'] * v['count'] for v in unit_mix.values())
-    fig_total.add_hline(y=gpr, line_dash="dot", line_color="#7F8C8D",
+    fig_total.add_hline(y=gpr, line_dash="dot", line_color=COLORS["muted"],
                         annotation_text=f"GPR: ${gpr:,.0f}")
     fig_total.update_layout(
-        height=350, margin=dict(l=0, r=0, t=30, b=0),
+        **PLOTLY_LAYOUT,
+        height=350,
         yaxis_title="$",
     )
     st.plotly_chart(fig_total, use_container_width=True)
 
 with right_col:
-    st.subheader("Month-over-Month Rent Growth")
+    section_header("Month-over-Month Rent Growth")
     mom_growth = []
     for i in range(len(avg_rents)):
         if i == 0:
             mom_growth.append(0)
         else:
-            pct = (avg_rents[i] / avg_rents[i - 1] - 1) if avg_rents[i - 1] else 0
-            mom_growth.append(pct * 100)
+            pct_g = (avg_rents[i] / avg_rents[i - 1] - 1) if avg_rents[i - 1] else 0
+            mom_growth.append(pct_g * 100)
 
-    colors = ['#1E8449' if v >= 0 else '#C00000' for v in mom_growth]
+    colors = [COLORS["success"] if v >= 0 else COLORS["error"] for v in mom_growth]
     fig_mom = go.Figure()
     fig_mom.add_trace(go.Bar(
         x=month_labels, y=mom_growth,
         marker_color=colors, opacity=0.8,
     ))
-    fig_mom.add_hline(y=0, line_color="#7F8C8D", opacity=0.3)
+    fig_mom.add_hline(y=0, line_color=COLORS["muted"], opacity=0.3)
     fig_mom.update_layout(
-        height=350, margin=dict(l=0, r=0, t=30, b=0),
+        **PLOTLY_LAYOUT,
+        height=350,
         yaxis_title="% Change",
     )
     st.plotly_chart(fig_mom, use_container_width=True)
 
-st.divider()
+spacer(8)
 
 # ── Loss-to-Lease Analysis ───────────────────────────────────────
-st.subheader("Loss-to-Lease Analysis")
-st.caption("Gap between in-place rents and market rents by unit.")
-
-C_TITLE = "#0D1B2A"
-C_ALT = "#F7F9FC"
-C_GREEN = "#1E8449"
-C_RED = "#C00000"
+section_header("Loss-to-Lease Analysis",
+               "Gap between in-place rents and market rents by unit")
 
 latest_month = months[-1]
 current_rents = rr_df[['Unit', latest_month]].copy()
@@ -394,37 +383,36 @@ occupied = occupied.sort_values('LTL', ascending=False)
 total_ltl = occupied['LTL'].sum()
 avg_ltl = occupied['LTL'].mean()
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Monthly LTL", f"${total_ltl:,.0f}")
-col2.metric("Annual LTL Opportunity", f"${total_ltl * 12:,.0f}")
-col3.metric("Avg LTL per Unit", f"${avg_ltl:,.0f}")
+kpi_row([
+    {"label": "Total Monthly LTL", "value": f"${total_ltl:,.0f}"},
+    {"label": "Annual LTL Opportunity", "value": f"${total_ltl * 12:,.0f}"},
+    {"label": "Avg LTL per Unit", "value": f"${avg_ltl:,.0f}"},
+])
 
-# Top 10 units with biggest LTL gap
+# Top 15 units with biggest LTL gap
 top_ltl = occupied.head(15)
 if len(top_ltl) > 0:
     fig_ltl = go.Figure()
     fig_ltl.add_trace(go.Bar(
         x=top_ltl['Unit'], y=top_ltl['CurrentRent'],
-        name='In-Place Rent', marker_color='#1B4F72',
+        name='In-Place Rent', marker_color=COLORS["accent"],
     ))
     fig_ltl.add_trace(go.Bar(
         x=top_ltl['Unit'], y=top_ltl['LTL'],
-        name='Loss-to-Lease Gap', marker_color='#C00000', opacity=0.7,
+        name='Loss-to-Lease Gap', marker_color=COLORS["error"], opacity=0.7,
     ))
     fig_ltl.update_layout(
+        **PLOTLY_LAYOUT,
         barmode='stack', height=350,
-        margin=dict(l=0, r=0, t=30, b=0),
         yaxis_title="$/Month",
-        legend=dict(orientation='h', yanchor='bottom', y=1.02),
     )
     st.plotly_chart(fig_ltl, use_container_width=True)
 
-st.divider()
+spacer(8)
 
 # ── Renovation ROI ────────────────────────────────────────────────
 if os.path.exists(UI_CSV):
-    st.subheader("Renovation ROI")
-    st.caption("Rent lift from unit renovations.")
+    section_header("Renovation ROI", "Rent lift from unit renovations")
 
     ui_df = pd.read_csv(UI_CSV)
     renovated = ui_df[ui_df['Condition'] == 'Renovated'].copy()
@@ -443,25 +431,25 @@ if os.path.exists(UI_CSV):
             avg_lift_pct = has_current['LiftPct'].mean()
             total_annual_lift = has_current['RentLift'].sum() * 12
 
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Units Renovated", f"{len(has_current)}")
-            col2.metric("Avg Rent Lift", f"${avg_lift:,.0f}/mo")
-            col3.metric("Avg Lift %", f"{avg_lift_pct * 100:.1f}%")
-            col4.metric("Annual Lift Total", f"${total_annual_lift:,.0f}")
+            kpi_row([
+                {"label": "Units Renovated", "value": str(len(has_current))},
+                {"label": "Avg Rent Lift", "value": f"${avg_lift:,.0f}/mo"},
+                {"label": "Avg Lift %", "value": f"{avg_lift_pct * 100:.1f}%"},
+                {"label": "Annual Lift Total", "value": f"${total_annual_lift:,.0f}"},
+            ])
 
             fig_reno = go.Figure()
             fig_reno.add_trace(go.Bar(
                 x=has_current['Unit'], y=has_current['OrigRent'],
-                name='Original Rent', marker_color='#7F8C8D',
+                name='Original Rent', marker_color=COLORS["muted"],
             ))
             fig_reno.add_trace(go.Bar(
                 x=has_current['Unit'], y=has_current['RentLift'],
-                name='Rent Lift', marker_color='#1E8449',
+                name='Rent Lift', marker_color=COLORS["success"],
             ))
             fig_reno.update_layout(
+                **PLOTLY_LAYOUT,
                 barmode='stack', height=350,
-                margin=dict(l=0, r=0, t=30, b=0),
                 yaxis_title="$/Month",
-                legend=dict(orientation='h', yanchor='bottom', y=1.02),
             )
             st.plotly_chart(fig_reno, use_container_width=True)

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_monthly_series, get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, section_header, spacer
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -49,13 +49,6 @@ df = load_data(
 )
 t12 = get_t12_totals(df)
 
-C_TITLE = "#0D1B2A"
-C_GREEN = "#1E8449"
-C_RED = "#C00000"
-C_ALT = "#F7F9FC"
-C_ACCENT = "#1B4F72"
-C_NOTE_BG = "#E8F5E9"
-
 # ── Owner Selector ────────────────────────────────────────────────
 owners = list(st.session_state.tic.keys())
 selected_owner = st.selectbox("Select Investor", owners)
@@ -64,8 +57,11 @@ owner_info = st.session_state.tic[selected_owner]
 pct = owner_info['pct']
 equity = owner_info['equity']
 
-st.caption(f"Ownership: {pct*100:.3f}% | Equity Invested: ${equity:,.0f}")
-st.divider()
+st.markdown(
+    f'<p style="font-size:0.85rem;color:{COLORS["muted"]};margin:-8px 0 16px 0;">'
+    f'Ownership: <b>{pct*100:.3f}%</b> &bull; Equity Invested: <b>{fmt_currency(equity)}</b></p>',
+    unsafe_allow_html=True,
+)
 
 # ── Monthly NCF series for this owner ─────────────────────────────
 ncf_series = get_monthly_series(df, 'NET CASH FLOW')
@@ -87,31 +83,32 @@ t12_noi = t12['NET OPERATING INCOME (NOI)'] * pct
 t12_cfads = t12['CASH FLOW AFTER DEBT SERVICE'] * pct
 
 # ── KPI Cards ─────────────────────────────────────────────────────
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Equity Invested", f"${equity:,.0f}")
-col2.metric("Total Distributions", f"${total_distributed:,.0f}")
-col3.metric("Annualized Cash-on-Cash", f"{coc * 100:.1f}%")
-col4.metric("Months Held", f"{months_held}")
-
-col5, col6, col7, col8 = st.columns(4)
-col5.metric("T-12 NOI Share", f"${t12_noi:,.0f}")
-col6.metric("T-12 CFADS Share", f"${t12_cfads:,.0f}")
-col7.metric("T-12 NCF Share", f"${t12_ncf:,.0f}")
 remaining_to_breakeven = equity - total_distributed
-col8.metric(
-    "To Breakeven",
-    f"${max(0, remaining_to_breakeven):,.0f}" if remaining_to_breakeven > 0 else "Recovered!",
-)
 
-st.divider()
+kpi_row([
+    {"label": "Equity Invested", "value": fmt_currency(equity)},
+    {"label": "Total Distributions", "value": fmt_currency(total_distributed)},
+    {"label": "Annualized Cash-on-Cash", "value": fmt_pct(coc)},
+    {"label": "Months Held", "value": str(months_held)},
+])
+
+kpi_row([
+    {"label": "T-12 NOI Share", "value": fmt_currency(t12_noi)},
+    {"label": "T-12 CFADS Share", "value": fmt_currency(t12_cfads)},
+    {"label": "T-12 NCF Share", "value": fmt_currency(t12_ncf)},
+    {"label": "To Breakeven",
+     "value": fmt_currency(max(0, remaining_to_breakeven)) if remaining_to_breakeven > 0 else "Recovered!"},
+])
+
+spacer(8)
 
 # ── Chart 1: Monthly Distribution Timeline ───────────────────────
-st.subheader(f"Monthly Distribution — {selected_owner}")
+section_header(f"Monthly Distribution \u2014 {selected_owner}")
 
 fig = go.Figure()
 
 # Monthly bars
-colors = [C_GREEN if v >= 0 else C_RED for v in ncf_series['Owner_Share']]
+colors = [COLORS["success"] if v >= 0 else COLORS["error"] for v in ncf_series['Owner_Share']]
 fig.add_trace(go.Bar(
     x=ncf_series['Month'], y=ncf_series['Owner_Share'],
     name='Monthly Distribution', marker_color=colors, opacity=0.7,
@@ -120,83 +117,63 @@ fig.add_trace(go.Bar(
 # Cumulative line
 fig.add_trace(go.Scatter(
     x=ncf_series['Month'], y=ncf_series['Cumulative'],
-    name='Cumulative', line=dict(color=C_TITLE, width=2.5),
+    name='Cumulative', line=dict(color=COLORS["primary"], width=2.5),
     mode='lines+markers', yaxis='y2',
 ))
 
-# Equity invested line
-fig.add_hline(y=0, line_dash="dot", line_color="#7F8C8D", opacity=0.3)
+# Zero line
+fig.add_hline(y=0, line_dash="dot", line_color=COLORS["muted"], opacity=0.3)
 
 fig.update_layout(
-    height=400, margin=dict(l=0, r=0, t=30, b=0),
-    yaxis=dict(title="Monthly ($)"),
-    yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right'),
-    legend=dict(orientation='h', yanchor='bottom', y=1.02),
+    **PLOTLY_LAYOUT,
+    height=400,
+    yaxis=dict(title="Monthly ($)", gridcolor="#F3F4F6"),
+    yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right', gridcolor="#F3F4F6"),
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
+spacer(8)
 
 # ── Distribution Statement Table ─────────────────────────────────
-st.subheader("Distribution Statement")
+section_header("Distribution Statement")
 
-html = [f'''
-<div style="overflow-x:auto;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;text-align:center;">
-    <td style="text-align:left;padding:8px 12px;">Month</td>
-    <td style="padding:8px 12px;">Property NCF</td>
-    <td style="padding:8px 12px;">Your Share ({pct*100:.3f}%)</td>
-    <td style="padding:8px 12px;">Cumulative</td>
-    <td style="padding:8px 12px;">% of Equity Returned</td>
-</tr>
-</thead>
-<tbody>
-''']
+headers = ["Month", "Property NCF", f"Your Share ({pct*100:.3f}%)", "Cumulative", "% of Equity Returned"]
+tbl_rows = []
+col_align = ["left", "right", "right", "right", "right"]
 
 cumul = 0
-for i, row in ncf_series.iterrows():
+for _, row in ncf_series.iterrows():
     month_label = row['Month'].strftime('%b %Y')
     prop_ncf = row['Amount']
     owner_share = row['Owner_Share']
     cumul += owner_share
     pct_returned = cumul / equity if equity else 0
 
-    bg = f"background-color:{C_ALT};" if i % 2 == 0 else ""
-    share_color = C_GREEN if owner_share >= 0 else C_RED
+    share_color = COLORS["success"] if owner_share >= 0 else COLORS["error"]
 
-    def _fmt(v):
-        if v < 0:
-            return f"(${abs(v):,.0f})"
-        return f"${v:,.0f}"
-
-    html.append(f'''
-<tr style="{bg}">
-    <td style="padding:5px 12px;font-weight:600;">{month_label}</td>
-    <td style="text-align:right;padding:5px 12px;">{_fmt(prop_ncf)}</td>
-    <td style="text-align:right;padding:5px 12px;color:{share_color};font-weight:600;">{_fmt(owner_share)}</td>
-    <td style="text-align:right;padding:5px 12px;">{_fmt(cumul)}</td>
-    <td style="text-align:right;padding:5px 12px;">{pct_returned*100:.1f}%</td>
-</tr>''')
+    tbl_rows.append([
+        month_label,
+        fmt_currency(prop_ncf),
+        f"<span style='color:{share_color};font-weight:600;'>{fmt_currency(owner_share)}</span>",
+        fmt_currency(cumul),
+        fmt_pct(pct_returned),
+    ])
 
 # Total row
-html.append(f'''
-<tr style="background-color:{C_NOTE_BG};font-weight:700;">
-    <td style="padding:6px 12px;color:{C_GREEN};">TOTAL</td>
-    <td style="text-align:right;padding:6px 12px;color:{C_GREEN};">{_fmt(ncf_series["Amount"].sum())}</td>
-    <td style="text-align:right;padding:6px 12px;color:{C_GREEN};">{_fmt(total_distributed)}</td>
-    <td style="text-align:right;padding:6px 12px;color:{C_GREEN};">{_fmt(cumul)}</td>
-    <td style="text-align:right;padding:6px 12px;color:{C_GREEN};">{cumul/equity*100:.1f}%</td>
-</tr>''')
+tbl_rows.append([
+    f"<b style='color:{COLORS['success']}'>TOTAL</b>",
+    f"<b style='color:{COLORS['success']}'>{fmt_currency(ncf_series['Amount'].sum())}</b>",
+    f"<b style='color:{COLORS['success']}'>{fmt_currency(total_distributed)}</b>",
+    f"<b style='color:{COLORS['success']}'>{fmt_currency(cumul)}</b>",
+    f"<b style='color:{COLORS['success']}'>{fmt_pct(cumul / equity if equity else 0)}</b>",
+])
 
-html.append('</tbody></table></div>')
-st.markdown('\n'.join(html), unsafe_allow_html=True)
+styled_table(headers, tbl_rows, col_align=col_align, highlight_rows={len(tbl_rows) - 1})
 
-st.divider()
+spacer(8)
 
 # ── Equity Recovery Progress ─────────────────────────────────────
-st.subheader("Equity Recovery Progress")
+section_header("Equity Recovery Progress")
 
 recovery_pct = min(total_distributed / equity, 1.0) if equity else 0
 
@@ -204,20 +181,25 @@ fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number+delta",
     value=recovery_pct * 100,
     delta={'reference': 100, 'relative': False, 'suffix': 'pp to go'},
-    title={'text': "Equity Returned (%)"},
+    title={'text': "Equity Returned (%)", 'font': {'size': 14, 'color': COLORS["text"]}},
+    number={'font': {'size': 36, 'color': COLORS["primary"]}},
     gauge={
-        'axis': {'range': [0, 100]},
-        'bar': {'color': C_GREEN},
+        'axis': {'range': [0, 100], 'tickfont': {'size': 11, 'color': COLORS["muted"]}},
+        'bar': {'color': COLORS["accent"]},
         'steps': [
-            {'range': [0, 50], 'color': '#F7F9FC'},
-            {'range': [50, 100], 'color': '#E8F5E9'},
+            {'range': [0, 50], 'color': '#F0FDFA'},
+            {'range': [50, 100], 'color': '#CCFBF1'},
         ],
         'threshold': {
-            'line': {'color': C_RED, 'width': 3},
+            'line': {'color': COLORS["error"], 'width': 3},
             'thickness': 0.8,
             'value': 100,
         },
     },
 ))
-fig_gauge.update_layout(height=300, margin=dict(l=30, r=30, t=60, b=0))
+fig_gauge.update_layout(
+    height=300, margin=dict(l=30, r=30, t=60, b=0),
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter, system-ui, sans-serif"),
+)
 st.plotly_chart(fig_gauge, use_container_width=True)

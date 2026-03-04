@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
-from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -67,7 +67,7 @@ def compute_irr(cashflows, guess=0.10, tol=1e-8, max_iter=200):
 
 
 # ── Exit Assumptions ──────────────────────────────────────────────
-st.subheader("Exit Assumptions")
+section_header("Exit Assumptions")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -87,7 +87,7 @@ with col4:
         "Annual NOI Growth", value=0.03, min_value=-0.05, max_value=0.15,
         step=0.005, format="%.3f", key="ret_noi_growth")
 
-st.divider()
+spacer(8)
 
 # ── Projections ───────────────────────────────────────────────────
 current_noi = t12['NET OPERATING INCOME (NOI)']
@@ -126,24 +126,26 @@ cumulative_cf = sum(
 )
 
 # ── Returns Summary ───────────────────────────────────────────────
-st.subheader("Returns Summary")
+section_header("Returns Summary")
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Projected IRR", f"{irr * 100:.1f}%")
-col2.metric("Equity Multiple", f"{equity_multiple:.2f}x")
-col3.metric("Exit Value", f"${exit_value:,.0f}")
-col4.metric("Net Sale Proceeds", f"${net_sale_proceeds:,.0f}")
+kpi_row([
+    {"label": "Projected IRR", "value": fmt_pct(irr)},
+    {"label": "Equity Multiple", "value": fmt_multiple(equity_multiple)},
+    {"label": "Exit Value", "value": fmt_currency(exit_value)},
+    {"label": "Net Sale Proceeds", "value": fmt_currency(net_sale_proceeds)},
+])
 
-col5, col6, col7, col8 = st.columns(4)
-col5.metric("Total Equity Invested", f"${total_equity:,.0f}")
-col6.metric("Cumulative Cash Flow", f"${cumulative_cf:,.0f}")
-col7.metric("Projected Exit NOI", f"${projected_noi:,.0f}")
-col8.metric("Total Return", f"${total_distributions:,.0f}")
+kpi_row([
+    {"label": "Total Equity Invested", "value": fmt_currency(total_equity)},
+    {"label": "Cumulative Cash Flow", "value": fmt_currency(cumulative_cf)},
+    {"label": "Projected Exit NOI", "value": fmt_currency(projected_noi)},
+    {"label": "Total Return", "value": fmt_currency(total_distributions)},
+])
 
-st.divider()
+spacer(8)
 
 # ── Hold Period Cash Flow Timeline ────────────────────────────────
-st.subheader("Projected Cash Flow Timeline")
+section_header("Projected Cash Flow Timeline")
 
 timeline_data = []
 cumulative = 0
@@ -181,7 +183,7 @@ tl_df = pd.DataFrame(timeline_data)
 fig = go.Figure()
 
 # Cash flow bars
-colors = ['#C00000' if v < 0 else '#1B4F72' if t == 'Operating CF' else '#1E8449'
+colors = [COLORS["error"] if v < 0 else COLORS["accent"] if t == 'Operating CF' else COLORS["success"]
           for v, t in zip(tl_df['Cash Flow'], tl_df['Type'])]
 fig.add_trace(go.Bar(
     x=tl_df['Year'], y=tl_df['Cash Flow'],
@@ -191,55 +193,31 @@ fig.add_trace(go.Bar(
 # Cumulative line
 fig.add_trace(go.Scatter(
     x=tl_df['Year'], y=tl_df['Cumulative'],
-    name='Cumulative', line=dict(color='#0D1B2A', width=2.5),
+    name='Cumulative', line=dict(color=COLORS["primary"], width=2.5),
     mode='lines+markers',
 ))
 
 # Break-even line
-fig.add_hline(y=0, line_dash="dash", line_color="#7F8C8D", opacity=0.5)
+fig.add_hline(y=0, line_dash="dash", line_color=COLORS["muted"], opacity=0.5)
 
 fig.update_layout(
-    height=400, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=400,
     yaxis_title="$", barmode='relative',
-    legend=dict(orientation='h', yanchor='bottom', y=1.02),
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
+spacer(8)
 
 # ── Per-Owner Returns ─────────────────────────────────────────────
-st.subheader("Per-Owner Returns")
+section_header("Per-Owner Returns")
 
-C_TITLE = "#0D1B2A"
-C_ACCENT = "#1B4F72"
-C_GREEN = "#1E8449"
-C_ALT = "#F7F9FC"
-C_NOTE_BG = "#E8F5E9"
+headers = ["Owner", "Ownership %", "Equity Invested", "Cumulative CF",
+           "Sale Proceeds", "Total Return", "Equity Multiple", "IRR"]
+rows = []
+col_align = ["left", "center", "right", "right", "right", "right", "center", "center"]
 
-def _fmt(v):
-    if v < 0:
-        return f"(${abs(v):,.0f})"
-    return f"${v:,.0f}"
-
-html = [f'''
-<div style="overflow-x:auto;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;text-align:center;">
-    <td style="text-align:left;padding:8px 12px;">Owner</td>
-    <td style="padding:8px;">Ownership %</td>
-    <td style="padding:8px;">Equity Invested</td>
-    <td style="padding:8px;">Cumulative CF</td>
-    <td style="padding:8px;">Sale Proceeds</td>
-    <td style="padding:8px;">Total Return</td>
-    <td style="padding:8px;">Equity Multiple</td>
-    <td style="padding:8px;">IRR</td>
-</tr>
-</thead>
-<tbody>
-''']
-
-for i, (owner, info) in enumerate(st.session_state.tic.items()):
+for owner, info in st.session_state.tic.items():
     pct = info['pct']
     equity = info['equity']
     owner_cum_cf = cumulative_cf * pct
@@ -255,36 +233,34 @@ for i, (owner, info) in enumerate(st.session_state.tic.items()):
     owner_cashflows.append(final_cf + owner_sale)
     owner_irr = compute_irr(owner_cashflows)
 
-    bg = f"background-color:{C_ALT};" if i % 2 == 0 else ""
-    html.append(f'''
-<tr style="{bg}">
-    <td style="padding:6px 12px;font-weight:600;">{owner}</td>
-    <td style="text-align:center;padding:6px 8px;">{pct*100:.3f}%</td>
-    <td style="text-align:right;padding:6px 8px;">{_fmt(equity)}</td>
-    <td style="text-align:right;padding:6px 8px;">{_fmt(owner_cum_cf)}</td>
-    <td style="text-align:right;padding:6px 8px;">{_fmt(owner_sale)}</td>
-    <td style="text-align:right;padding:6px 8px;color:{C_GREEN};font-weight:700;">{_fmt(owner_total)}</td>
-    <td style="text-align:center;padding:6px 8px;font-weight:700;">{owner_em:.2f}x</td>
-    <td style="text-align:center;padding:6px 8px;font-weight:700;color:{C_GREEN};">{owner_irr*100:.1f}%</td>
-</tr>''')
+    irr_color = COLORS["success"] if owner_irr > 0.10 else COLORS["text"]
+    rows.append([
+        f"<b>{owner}</b>",
+        f"{pct*100:.3f}%",
+        fmt_currency(equity),
+        fmt_currency(owner_cum_cf),
+        fmt_currency(owner_sale),
+        f"<span style='color:{COLORS['success']};font-weight:600;'>{fmt_currency(owner_total)}</span>",
+        f"<b>{fmt_multiple(owner_em)}</b>",
+        f"<span style='color:{irr_color};font-weight:600;'>{fmt_pct(owner_irr)}</span>",
+    ])
 
-html.append('</tbody></table></div>')
-st.markdown('\n'.join(html), unsafe_allow_html=True)
+styled_table(headers, rows, col_align=col_align)
 
-st.divider()
+spacer(8)
 
 # ── Key Assumptions Recap ─────────────────────────────────────────
 with st.expander("Assumptions Used"):
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.write("**Current T-12 NOI:**", f"${current_noi:,.0f}")
-        st.write("**Current T-12 NCF:**", f"${current_ncf:,.0f}")
-        st.write("**Purchase Price:**", f"${purchase_price:,.0f}")
+        st.write("**Current T-12 NOI:**", fmt_currency(current_noi))
+        st.write("**Current T-12 NCF:**", fmt_currency(current_ncf))
+        st.write("**Purchase Price:**", fmt_currency(purchase_price))
     with col2:
-        st.write("**Exit Cap Rate:**", f"{exit_cap_rate*100:.1f}%")
+        st.write("**Exit Cap Rate:**", fmt_pct(exit_cap_rate))
         st.write("**Hold Period:**", f"{hold_years} years")
-        st.write("**NOI Growth:**", f"{annual_noi_growth*100:.1f}%/yr")
+        st.write("**NOI Growth:**", f"{fmt_pct(annual_noi_growth)}/yr")
     with col3:
-        st.write("**Selling Costs:**", f"{selling_costs_pct*100:.1f}%")
-        st.write("**Loan Balance:**", f"${loan_balance:,.0f}")
-        st.write("**Total Equity:**", f"${total_equity:,.0f}")
+        st.write("**Selling Costs:**", fmt_pct(selling_costs_pct))
+        st.write("**Loan Balance:**", fmt_currency(loan_balance))
+        st.write("**Total Equity:**", fmt_currency(total_equity))

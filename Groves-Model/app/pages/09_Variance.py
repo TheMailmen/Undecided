@@ -10,9 +10,9 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from data_engine import get_t12_totals, load_pl_data
+from data_engine import get_t12_totals, get_monthly_series, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, section_header, spacer
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -49,15 +49,9 @@ df = load_data(
 )
 t12 = get_t12_totals(df)
 
-C_TITLE = "#0D1B2A"
-C_GREEN = "#1E8449"
-C_RED = "#C00000"
-C_ALT = "#F7F9FC"
-C_ACCENT = "#1B4F72"
-
 # ── Underwriting Budget Inputs ────────────────────────────────────
-st.subheader("Underwriting Budget (Annual)")
-st.caption("Enter the Year 1 underwriting assumptions. These are compared against T-12 actuals.")
+section_header("Underwriting Budget (Annual)",
+               "Enter the Year 1 underwriting assumptions. These are compared against T-12 actuals.")
 
 # Initialize budget in session state
 if 'budget' not in st.session_state:
@@ -118,101 +112,91 @@ a_capex = t12.get('Total Capital Expenditures', 0)
 a_ncf = t12.get('NET CASH FLOW', 0)
 a_gpr = t12.get('Gross Potential Rent', 0)
 
-st.divider()
+spacer(8)
 
 # ── Variance Summary KPIs ────────────────────────────────────────
-st.subheader("T-12 Actuals vs Underwriting")
+section_header("T-12 Actuals vs Underwriting")
 
 noi_var = a_noi - b_noi
 ncf_var = a_ncf - b_ncf
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Actual NOI", f"${a_noi:,.0f}", delta=f"${noi_var:,.0f} vs UW")
-col2.metric("Budget NOI", f"${b_noi:,.0f}")
-col3.metric("Actual NCF", f"${a_ncf:,.0f}", delta=f"${ncf_var:,.0f} vs UW")
-col4.metric("Budget NCF", f"${b_ncf:,.0f}")
+kpi_row([
+    {"label": "Actual NOI", "value": fmt_currency(a_noi),
+     "delta": f"{fmt_currency(noi_var)} vs UW"},
+    {"label": "Budget NOI", "value": fmt_currency(b_noi)},
+    {"label": "Actual NCF", "value": fmt_currency(a_ncf),
+     "delta": f"{fmt_currency(ncf_var)} vs UW"},
+    {"label": "Budget NCF", "value": fmt_currency(b_ncf)},
+])
 
-st.divider()
+spacer(8)
 
 # ── Detailed Variance Table ──────────────────────────────────────
-st.subheader("Line-Item Variance")
+section_header("Line-Item Variance")
 
-def _fmt(v):
-    if v < 0:
-        return f"(${abs(v):,.0f})"
-    return f"${v:,.0f}"
 
 def _var_color(v, favorable_positive=True):
     """Return color based on variance direction."""
     if favorable_positive:
-        return C_GREEN if v > 0 else (C_RED if v < 0 else "#333")
+        return COLORS["success"] if v > 0 else (COLORS["error"] if v < 0 else COLORS["text"])
     else:
-        return C_RED if v > 0 else (C_GREEN if v < 0 else "#333")
+        return COLORS["error"] if v > 0 else (COLORS["success"] if v < 0 else COLORS["text"])
+
 
 items = [
     ('Gross Potential Rent', a_gpr, b['gpr'], True),
     ('Less: Vacancy & Loss', a_egi - a_gpr - (t12.get('Total Other Income', 0) if 'Total Other Income' in t12 else 0), -b['gpr'] * b['vacancy_pct'], False),
     ('Effective Gross Income', a_egi, b_egi, True),
-    ('', None, None, None),  # spacer
+    None,  # spacer
     ('Total Operating Expenses', a_opex, b_opex, False),
     ('NET OPERATING INCOME', a_noi, b_noi, True),
-    ('', None, None, None),  # spacer
+    None,  # spacer
     ('Total Debt Service', a_ds, b['debt_service'], False),
     ('CASH FLOW AFTER DEBT SVC', a_cfads, b_cfads, True),
-    ('', None, None, None),  # spacer
+    None,  # spacer
     ('Capital Expenditures', a_capex, b['capex'], False),
     ('NET CASH FLOW', a_ncf, b_ncf, True),
 ]
 
-html = [f'''
-<div style="overflow-x:auto;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;text-align:center;">
-    <td style="text-align:left;padding:8px 12px;min-width:220px;">Line Item</td>
-    <td style="padding:8px 12px;min-width:120px;">T-12 Actual</td>
-    <td style="padding:8px 12px;min-width:120px;">UW Budget</td>
-    <td style="padding:8px 12px;min-width:120px;">Variance ($)</td>
-    <td style="padding:8px 12px;min-width:100px;">Variance (%)</td>
-</tr>
-</thead>
-<tbody>
-''']
+headers = ["Line Item", "T-12 Actual", "UW Budget", "Variance ($)", "Variance (%)"]
+tbl_rows = []
+col_align = ["left", "right", "right", "right", "right"]
+highlight = set()
 
-alt = False
-for label, actual, budget_val, favorable_positive in items:
-    if actual is None:
-        html.append('<tr style="height:8px;"><td colspan="5"></td></tr>')
-        alt = False
+key_labels = {'NET OPERATING INCOME', 'CASH FLOW AFTER DEBT SVC', 'NET CASH FLOW', 'Effective Gross Income'}
+row_idx = 0
+
+for item in items:
+    if item is None:
         continue
 
+    label, actual, budget_val, favorable_positive = item
     variance = actual - budget_val
     var_pct = variance / abs(budget_val) if budget_val != 0 else 0
+    vc = _var_color(variance, favorable_positive)
 
-    # For expense items, negative variance is favorable
-    is_key = label in ('NET OPERATING INCOME', 'CASH FLOW AFTER DEBT SVC', 'NET CASH FLOW', 'Effective Gross Income')
-    bg = f"background-color:#E8F5E9;" if is_key else (f"background-color:{C_ALT};" if alt else "")
-    bold = "font-weight:700;" if is_key else ""
-    green = f"color:{C_GREEN};" if is_key else ""
-    var_color = _var_color(variance, favorable_positive)
+    is_key = label in key_labels
+    if is_key:
+        highlight.add(row_idx)
 
-    html.append(f'''
-<tr style="{bg}">
-    <td style="padding:6px 12px;{bold}{green}">{label}</td>
-    <td style="text-align:right;padding:6px 12px;{bold}{green}">{_fmt(actual)}</td>
-    <td style="text-align:right;padding:6px 12px;">{_fmt(budget_val)}</td>
-    <td style="text-align:right;padding:6px 12px;color:{var_color};font-weight:600;">{_fmt(variance)}</td>
-    <td style="text-align:right;padding:6px 12px;color:{var_color};font-weight:600;">{var_pct*100:.1f}%</td>
-</tr>''')
-    alt = not alt
+    bold = "font-weight:600;" if is_key else ""
+    key_style = f"color:{COLORS['success']};" if is_key else ""
 
-html.append('</tbody></table></div>')
-st.markdown('\n'.join(html), unsafe_allow_html=True)
+    tbl_rows.append([
+        f"<span style='{bold}{key_style}'>{label}</span>",
+        f"<span style='{bold}{key_style}'>{fmt_currency(actual)}</span>",
+        fmt_currency(budget_val),
+        f"<span style='color:{vc};font-weight:600;'>{fmt_currency(variance)}</span>",
+        f"<span style='color:{vc};font-weight:600;'>{var_pct*100:.1f}%</span>",
+    ])
+    row_idx += 1
 
-st.divider()
+styled_table(headers, tbl_rows, col_align=col_align, highlight_rows=highlight)
+
+spacer(8)
 
 # ── Variance Waterfall Chart ─────────────────────────────────────
-st.subheader("NOI Variance Waterfall")
+section_header("NOI Variance Waterfall")
 
 # Break down the NOI variance into components
 egi_var = a_egi - b_egi
@@ -229,20 +213,20 @@ fig_wf = go.Figure(go.Waterfall(
     x=[item[0] for item in waterfall_items],
     y=[item[1] for item in waterfall_items],
     measure=[item[2] for item in waterfall_items],
-    connector=dict(line=dict(color='#7F8C8D')),
-    increasing=dict(marker=dict(color='#1E8449')),
-    decreasing=dict(marker=dict(color='#C00000')),
-    totals=dict(marker=dict(color='#1B4F72')),
+    connector=dict(line=dict(color=COLORS["border"])),
+    increasing=dict(marker=dict(color=COLORS["success"])),
+    decreasing=dict(marker=dict(color=COLORS["error"])),
+    totals=dict(marker=dict(color=COLORS["primary"])),
     texttemplate="%{y:$,.0f}",
     textposition="outside",
 ))
-fig_wf.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0))
+fig_wf.update_layout(**PLOTLY_LAYOUT, height=400)
 st.plotly_chart(fig_wf, use_container_width=True)
 
-# ── Monthly Actual vs Budget Trend ────────────────────────────────
-st.subheader("Monthly NOI: Actual vs Budget")
+spacer(8)
 
-from data_engine import get_monthly_series
+# ── Monthly Actual vs Budget Trend ────────────────────────────────
+section_header("Monthly NOI: Actual vs Budget")
 
 noi_series = get_monthly_series(df, 'NET OPERATING INCOME (NOI)')
 monthly_budget_noi = b_noi / 12
@@ -250,15 +234,15 @@ monthly_budget_noi = b_noi / 12
 fig_trend = go.Figure()
 fig_trend.add_trace(go.Bar(
     x=noi_series['Month'], y=noi_series['Amount'],
-    name='Actual NOI', marker_color='#1B4F72', opacity=0.8,
+    name='Actual NOI', marker_color=COLORS["accent"], opacity=0.8,
 ))
 fig_trend.add_hline(
-    y=monthly_budget_noi, line_dash="dash", line_color="#C00000",
-    annotation_text=f"Budget: ${monthly_budget_noi:,.0f}/mo",
+    y=monthly_budget_noi, line_dash="dash", line_color=COLORS["error"],
+    annotation_text=f"Budget: {fmt_currency(monthly_budget_noi)}/mo",
 )
 fig_trend.update_layout(
-    height=350, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=350,
     yaxis_title="$",
-    legend=dict(orientation='h', yanchor='bottom', y=1.02),
 )
 st.plotly_chart(fig_trend, use_container_width=True)
