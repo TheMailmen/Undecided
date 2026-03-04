@@ -46,6 +46,25 @@ from ui.theme import inject_theme, COLORS
 
 inject_theme()
 
+# ── Sidebar Branding ─────────────────────────────────────────────
+with st.sidebar:
+    st.markdown(f"""
+    <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12);">
+        <p style="margin:0 0 2px 0;font-size:0.65rem;font-weight:600;text-transform:uppercase;
+                   letter-spacing:0.12em;color:rgba(255,255,255,.4);">
+            Lakeshore Management
+        </p>
+        <p style="margin:0;font-size:1.05rem;font-weight:700;color:white;
+                   letter-spacing:-0.01em;">
+            {st.session_state.property['name']}
+        </p>
+        <p style="margin:4px 0 0 0;font-size:0.72rem;color:rgba(255,255,255,.5);">
+            {st.session_state.property['units']} units &bull;
+            {st.session_state.property['address'].split(',')[0]}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ── Landing Page ──────────────────────────────────────────────────
 
 prop = st.session_state.property

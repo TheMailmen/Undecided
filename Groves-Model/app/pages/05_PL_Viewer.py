@@ -144,7 +144,7 @@ def render_pl_table(rows, months_list, show_t12=True, show_per_unit=True):
         month_labels.append(dt.strftime('%b %y'))
 
     # Build HTML
-    html = ['<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;">']
+    html = ['<div style="overflow-x:auto;border:1px solid ' + COLORS["border"] + ';border-radius:12px;"><table style="border-collapse:collapse;width:100%;font-family:Inter,system-ui,sans-serif;font-size:0.82rem;">']
 
     # Header row
     html.append(f'<thead><tr style="background-color:{C_TITLE};color:white;font-weight:700;text-align:center;">')
@@ -236,8 +236,8 @@ def render_exec_summary(t12):
     cfads = t12['CASH FLOW AFTER DEBT SERVICE']
 
     html = [f'''
-    <div style="font-family:Calibri,sans-serif;">
-    <table style="border-collapse:collapse;width:100%;font-size:13px;">
+    <div style="font-family:Inter,system-ui,sans-serif;border:1px solid {COLORS["border"]};border-radius:12px;overflow:hidden;">
+    <table style="border-collapse:collapse;width:100%;font-size:0.82rem;">
 
     <tr style="background-color:{C_SECTION};color:white;font-weight:700;">
         <td colspan="4" style="padding:8px 12px;letter-spacing:0.5px;">PROPERTY OVERVIEW</td>
@@ -297,7 +297,7 @@ def render_exec_summary(t12):
     <tr style="{bg}">
         <td style="padding:5px 12px;font-weight:600;{color}">{label}</td>
         <td style="padding:5px 12px;text-align:right;{color}">{_fmt_dollar(val)}</td>
-        <td style="padding:5px 12px;font-weight:600;color:#7F8C8D;">Per Unit</td>
+        <td style="padding:5px 12px;font-weight:600;color:{COLORS["muted"]};">Per Unit</td>
         <td style="padding:5px 12px;text-align:right;">{_fmt_dollar(per_unit)}</td>
     </tr>''')
 
@@ -376,7 +376,7 @@ def render_distribution(months_list):
 
     month_labels = [pd.Timestamp(m).strftime('%b %y') for m in months_list]
 
-    html = [f'<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;">']
+    html = [f'<div style="overflow-x:auto;border:1px solid {COLORS["border"]};border-radius:12px;"><table style="border-collapse:collapse;width:100%;font-family:Inter,system-ui,sans-serif;font-size:0.82rem;">']
 
     # Header
     html.append(f'<thead><tr style="background-color:{C_TITLE};color:white;font-weight:700;text-align:center;">')

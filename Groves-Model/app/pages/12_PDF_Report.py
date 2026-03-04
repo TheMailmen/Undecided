@@ -69,23 +69,27 @@ def generate_pdf():
     # ── Page 1: Executive Summary ─────────────────────────────
     pdf.add_page()
 
-    # Title bar
-    pdf.set_fill_color(13, 27, 42)  # #0D1B2A
-    pdf.rect(0, 0, 210, 28, 'F')
+    # Title bar — Lakeshore navy #0B1F3B
+    pdf.set_fill_color(11, 31, 59)  # #0B1F3B
+    pdf.rect(0, 0, 210, 30, 'F')
+    # Accent stripe
+    pdf.set_fill_color(47, 143, 157)  # #2F8F9D
+    pdf.rect(0, 28, 210, 2, 'F')
     pdf.set_font('Helvetica', 'B', 18)
     pdf.set_text_color(255, 255, 255)
     pdf.set_xy(10, 6)
     pdf.cell(190, 10, prop['name'], align='L')
-    pdf.set_font('Helvetica', '', 10)
+    pdf.set_font('Helvetica', '', 9)
     pdf.set_xy(10, 17)
-    pdf.cell(190, 6, f"Investor Report  |  {date.today().strftime('%B %d, %Y')}", align='L')
+    pdf.set_text_color(200, 210, 220)
+    pdf.cell(190, 6, f"Lakeshore Management  |  Investor Report  |  {date.today().strftime('%B %d, %Y')}", align='L')
 
     # Reset text color
     pdf.set_text_color(0, 0, 0)
     pdf.set_y(35)
 
     # Property Overview section
-    pdf.set_fill_color(27, 79, 114)  # #1B4F72
+    pdf.set_fill_color(11, 31, 59)  # #0B1F3B
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 11)
     pdf.cell(190, 8, '  PROPERTY OVERVIEW', ln=True, fill=True)
@@ -137,8 +141,8 @@ def generate_pdf():
 
     for label, val, is_key in fin_items:
         if is_key:
-            pdf.set_fill_color(232, 245, 233)  # #E8F5E9
-            pdf.set_text_color(30, 132, 73)
+            pdf.set_fill_color(224, 242, 254)  # #E0F2FE — accent tint
+            pdf.set_text_color(47, 143, 157)  # #2F8F9D
             pdf.set_font('Helvetica', 'B', 10)
             pdf.cell(80, 7, f"  {label}", border=0, fill=True)
             pdf.cell(55, 7, _fmt(val), align='R', border=0, fill=True)
@@ -214,18 +218,20 @@ def generate_pdf():
     # ── Page 2: TIC Ownership ─────────────────────────────────
     pdf.add_page()
 
-    # Title bar
-    pdf.set_fill_color(13, 27, 42)
-    pdf.rect(0, 0, 210, 20, 'F')
+    # Title bar — Lakeshore navy
+    pdf.set_fill_color(11, 31, 59)
+    pdf.rect(0, 0, 210, 22, 'F')
+    pdf.set_fill_color(47, 143, 157)
+    pdf.rect(0, 20, 210, 2, 'F')
     pdf.set_font('Helvetica', 'B', 14)
     pdf.set_text_color(255, 255, 255)
     pdf.set_xy(10, 5)
     pdf.cell(190, 10, 'TIC Ownership & Distributions', align='L')
     pdf.set_text_color(0, 0, 0)
-    pdf.set_y(25)
+    pdf.set_y(27)
 
     # TIC table header
-    pdf.set_fill_color(13, 27, 42)
+    pdf.set_fill_color(11, 31, 59)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
     pdf.cell(50, 7, '  Owner', fill=True)
