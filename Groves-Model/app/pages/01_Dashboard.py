@@ -18,13 +18,17 @@ from data_engine import (
     load_pl_data,
 )
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer
+from ui.components import page_header, kpi_row, section_header, spacer, no_data_page
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
 inject_theme()
+
+# ── Data guard ────────────────────────────────────────────────
+if no_data_page("pl_actuals.csv"):
+    st.stop()
 
 # Resolve CSV path
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

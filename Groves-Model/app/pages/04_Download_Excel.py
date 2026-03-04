@@ -3,14 +3,15 @@
 import os
 import subprocess
 import sys
+from datetime import datetime
 
 import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from ui.theme import inject_theme
-from ui.components import page_header
+from ui.theme import inject_theme, COLORS, fmt_currency
+from ui.components import page_header, section_header, spacer, badge, kpi_row
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -28,21 +29,63 @@ BUILD_SCRIPT = os.path.join(BASE_DIR, 'src', 'build.py')
 OUTPUT_PATH = os.path.join(BASE_DIR, 'output', 'Groves_Investor_Model.xlsx')
 
 # ── Current Assumptions Summary ───────────────────────────────────
-with st.expander("Current Assumptions", expanded=False):
+section_header("Model Configuration")
+
+kpi_row([
+    {"label": "Property", "value": st.session_state.property['name']},
+    {"label": "Units", "value": str(st.session_state.property['units'])},
+    {"label": "Purchase Price", "value": fmt_currency(st.session_state.property['purchase_price'])},
+    {"label": "Loan Rate", "value": f"{st.session_state.loan['rate'] * 100:.2f}%"},
+])
+
+with st.expander("Full Assumptions", expanded=False):
     col1, col2 = st.columns(2)
     with col1:
-        st.write("**Property:**", st.session_state.property['name'])
-        st.write("**Units:**", st.session_state.property['units'])
-        st.write("**Purchase Price:**", f"${st.session_state.property['purchase_price']:,.0f}")
-        st.write("**Loan Rate:**", f"{st.session_state.loan['rate'] * 100:.2f}%")
+        st.write("**Loan Balance:**", fmt_currency(st.session_state.loan['est_current_balance']))
+        st.write("**Total Equity:**", fmt_currency(st.session_state.total_equity))
     with col2:
-        st.write("**Loan Balance:**", f"${st.session_state.loan['est_current_balance']:,.0f}")
         for name, v in st.session_state.tic.items():
             st.write(f"**{name}:**", f"{v['pct'] * 100:.3f}%")
 
-st.divider()
+spacer(8)
+
+# ── Output Status ────────────────────────────────────────────────
+section_header("Output")
+
+file_exists = os.path.exists(OUTPUT_PATH)
+if file_exists:
+    file_size = os.path.getsize(OUTPUT_PATH)
+    mod_time = datetime.fromtimestamp(os.path.getmtime(OUTPUT_PATH))
+    status_badge = badge("Ready", "success")
+    st.markdown(f"""
+    <div style="background:{COLORS['surface']};border:1px solid {COLORS['border']};
+                border-radius:12px;padding:16px 20px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <p style="margin:0;font-weight:600;font-size:0.92rem;color:{COLORS['text']};
+                          font-family:'Inter',system-ui,sans-serif;">
+                    Groves_Investor_Model.xlsx</p>
+                <p style="margin:2px 0 0 0;font-size:0.78rem;color:{COLORS['muted']};">
+                    Last built: {mod_time.strftime('%b %d, %Y at %I:%M %p')} &bull; {file_size:,} bytes</p>
+            </div>
+            <div>{status_badge}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <div style="background:{COLORS['surface']};border:1px solid {COLORS['border']};
+                border-radius:12px;padding:24px;margin-bottom:16px;text-align:center;">
+        <p style="margin:0;font-size:0.9rem;color:{COLORS['muted']};">
+            No model file found. Click <b>Generate</b> below to build one.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+spacer(8)
 
 # ── Generate Button ───────────────────────────────────────────────
+section_header("Build")
+
 use_session_config = st.checkbox(
     "Use edited assumptions from the Assumptions page",
     value=True,
@@ -53,7 +96,6 @@ use_session_config = st.checkbox(
 if st.button("Generate Excel Model", type="primary", use_container_width=True):
     with st.spinner("Building model... This takes a few seconds."):
         if use_session_config:
-            # Build using session state config via the cfg_override mechanism
             try:
                 from build import main as build_main
 
@@ -73,7 +115,6 @@ if st.button("Generate Excel Model", type="primary", use_container_width=True):
             except Exception as e:
                 st.error(f"Build failed: {e}")
         else:
-            # Subprocess: uses on-disk config.py as-is
             result = subprocess.run(
                 [sys.executable, BUILD_SCRIPT],
                 capture_output=True, text=True,
@@ -93,6 +134,7 @@ if os.path.exists(OUTPUT_PATH):
     with open(OUTPUT_PATH, 'rb') as f:
         file_bytes = f.read()
 
+    spacer(8)
     st.download_button(
         label="Download Groves_Investor_Model.xlsx",
         data=file_bytes,
@@ -100,6 +142,3 @@ if os.path.exists(OUTPUT_PATH):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
-    st.caption(f"File size: {len(file_bytes):,} bytes")
-else:
-    st.info("No model file found. Click 'Generate' above to build one.")

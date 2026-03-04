@@ -297,3 +297,64 @@ def scenario_pills(options: list[str], active: str, key: str = "scenario_pill"):
 
 def spacer(px: int = 24):
     st.markdown(f'<div style="height:{px}px;"></div>', unsafe_allow_html=True)
+
+
+# ── No-Data Warning Page ─────────────────────────────────────
+
+def no_data_page(csv_name: str = "pl_actuals.csv"):
+    """Show a friendly empty state when required CSV data is missing.
+
+    Returns True if data is missing (caller should st.stop()), False if OK.
+    """
+    import os
+    BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
+    csv_path = os.path.join(BASE_DIR, 'data', csv_name)
+    if os.path.exists(csv_path):
+        return False
+
+    st.markdown(f"""
+    <div style="text-align:center;padding:60px 24px;margin:40px 0;">
+        <div style="font-size:3rem;margin-bottom:16px;">📂</div>
+        <h2 style="margin:0 0 8px 0;font-size:1.3rem;font-weight:700;
+                    color:{COLORS['primary']};font-family:'Inter',system-ui,sans-serif;">
+            Data Not Found
+        </h2>
+        <p style="margin:0 0 20px 0;color:{COLORS['muted']};font-size:0.9rem;max-width:420px;
+                  margin-left:auto;margin-right:auto;">
+            <code style="background:{COLORS['border']};padding:2px 8px;border-radius:4px;
+                         font-size:0.82rem;">{csv_name}</code>
+            is required for this page. Upload it on the
+            <b>Upload Data</b> page or place it in the <code>data/</code> directory.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    return True
+
+
+# ── File Status Card ─────────────────────────────────────────
+
+def file_status_card(filename: str, label: str, description: str, exists: bool, size: int = 0):
+    """Render a styled card showing file status with badge."""
+    if exists:
+        status_badge = badge("Available", "success")
+        size_text = f'<span style="font-size:0.75rem;color:{COLORS["muted"]};">{size:,} bytes</span>'
+    else:
+        status_badge = badge("Missing", "warn")
+        size_text = ""
+
+    st.markdown(f"""
+    <div style="background:{COLORS['surface']};border:1px solid {COLORS['border']};
+                border-radius:12px;padding:16px 20px;margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <p style="margin:0;font-weight:600;font-size:0.92rem;color:{COLORS['text']};
+                          font-family:'Inter',system-ui,sans-serif;">{label}</p>
+                <p style="margin:2px 0 0 0;font-size:0.78rem;color:{COLORS['muted']};">
+                    {description}</p>
+            </div>
+            <div style="text-align:right;">
+                {status_badge}<br>{size_text}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)

@@ -14,7 +14,7 @@ from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
 from ui.components import (
     page_header, kpi_row, section_header, sensitivity_matrix, spacer, badge,
-    styled_table,
+    styled_table, no_data_page,
 )
 
 # ── Init ──────────────────────────────────────────────────────────
@@ -22,6 +22,10 @@ if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
 inject_theme()
+
+# ── Data guard ────────────────────────────────────────────────
+if no_data_page("pl_actuals.csv"):
+    st.stop()
 
 # ── Data loading (cached) ────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

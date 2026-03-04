@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme
-from ui.components import page_header
+from ui.components import page_header, no_data_page
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -24,6 +24,10 @@ page_header(
     "Investor Report (PDF)",
     "Generate a professional PDF summary for investors",
 )
+
+# ── Data guard ────────────────────────────────────────────────
+if no_data_page("pl_actuals.csv"):
+    st.stop()
 
 # ── Data loading ──────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

@@ -12,13 +12,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from data_engine import load_pl_data, get_monthly_series, get_t12_totals
 from config import CHART_OF_ACCOUNTS, TOTAL_EQUITY, PROPERTY, TIC, LOAN, VALUATION
 from ui.theme import inject_theme, COLORS
-from ui.components import page_header
+from ui.components import page_header, no_data_page
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
 inject_theme()
+
+# ── Data guard ────────────────────────────────────────────────
+if no_data_page("pl_actuals.csv"):
+    st.stop()
 
 # ── Design tokens (P&L-specific — kept for table rendering) ──────
 C_TITLE = COLORS["primary"]
@@ -98,8 +102,13 @@ def _row_style(rtype, account):
     return ""
 
 
-def build_pl_pivot(months_list):
-    """Build a P&L table following the chart of accounts order."""
+@st.cache_data(show_spinner=False)
+def _build_pl_pivot_cached(_version, months_tuple, csv_path, total_equity, purchase_price):
+    """Cached P&L pivot — keyed by data version and month list."""
+    _df = load_pl_data(csv_path, {
+        'total_equity': total_equity,
+        'purchase_price': purchase_price,
+    })
     rows = []
     for gl, account, rtype in CHART_OF_ACCOUNTS:
         if rtype == 'spacer':
@@ -113,19 +122,29 @@ def build_pl_pivot(months_list):
         }
 
         if rtype == 'section':
-            for m in months_list:
+            for m in months_tuple:
                 row_data[m] = ''
             rows.append(row_data)
             continue
 
-        # Pull monthly values
-        for m in months_list:
-            match = df[(df['Account'] == account) & (df['Month'] == pd.Timestamp(m))]
+        for m in months_tuple:
+            match = _df[(_df['Account'] == account) & (_df['Month'] == pd.Timestamp(m))]
             row_data[m] = match['Amount'].sum() if len(match) > 0 else 0
 
         rows.append(row_data)
 
     return rows
+
+
+def build_pl_pivot(months_list):
+    """Build a P&L table following the chart of accounts order (cached)."""
+    return _build_pl_pivot_cached(
+        st.session_state.data_version,
+        tuple(months_list),
+        PL_CSV,
+        cfg['total_equity'],
+        cfg['purchase_price'],
+    )
 
 
 def render_pl_table(rows, months_list, show_t12=True, show_per_unit=True):

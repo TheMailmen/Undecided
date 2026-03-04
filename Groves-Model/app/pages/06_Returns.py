@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
-from ui.components import page_header, kpi_row, section_header, spacer, styled_table
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -24,6 +24,10 @@ page_header(
     "Investment Returns",
     "Projected IRR, equity multiple, and per-owner returns based on exit assumptions",
 )
+
+# ── Data guard ────────────────────────────────────────────────
+if no_data_page("pl_actuals.csv"):
+    st.stop()
 
 # ── Data loading ──────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
