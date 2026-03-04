@@ -206,3 +206,19 @@ if os.path.exists(comps_csv):
     section_header("Rent Comparables")
     comps_df = pd.read_csv(comps_csv)
     st.dataframe(comps_df, use_container_width=True, hide_index=True)
+
+# ── T-12 Data Export ─────────────────────────────────────────────
+spacer(8)
+with st.expander("Export T-12 Data"):
+    t12_export = {
+        "Metric": list(t12.keys()),
+        "Value": list(t12.values()),
+    }
+    t12_df = pd.DataFrame(t12_export)
+    st.download_button(
+        label="Download T-12 Summary (CSV)",
+        data=t12_df.to_csv(index=False),
+        file_name="t12_summary.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )

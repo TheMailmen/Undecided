@@ -1,5 +1,6 @@
 """Assumptions — Edit model configuration values with live recalculation."""
 
+import json
 import os
 import sys
 
@@ -218,12 +219,57 @@ st.session_state.refi['noah_pref_return'] = st.number_input(
 
 spacer(16)
 
-# ── Reset ─────────────────────────────────────────────────────────
-st.divider()
-if st.button("Reset All to Defaults", type="secondary"):
-    for key in ['property', 'unit_mix', 'loan', 'tic', 'total_equity',
-                'valuation', 'refi', 'escrow_names', 'initialized']:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.session_state.data_version = st.session_state.get('data_version', 0) + 1
-    st.rerun()
+# ── Export / Import Configuration ─────────────────────────────────
+section_header("Configuration Management")
+
+col_export, col_import, col_reset = st.columns(3)
+
+with col_export:
+    config_data = {
+        'property': st.session_state.property,
+        'unit_mix': st.session_state.unit_mix,
+        'loan': st.session_state.loan,
+        'tic': st.session_state.tic,
+        'total_equity': st.session_state.total_equity,
+        'valuation': st.session_state.valuation,
+        'refi': st.session_state.refi,
+        'escrow_names': st.session_state.escrow_names,
+    }
+    st.download_button(
+        label="Export Config (JSON)",
+        data=json.dumps(config_data, indent=2, default=str),
+        file_name="groves_config.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+with col_import:
+    uploaded_config = st.file_uploader(
+        "Import Config", type=['json'], key="config_upload",
+        label_visibility="collapsed",
+    )
+    if uploaded_config is not None:
+        try:
+            imported = json.loads(uploaded_config.read())
+            config_keys = ['property', 'unit_mix', 'loan', 'tic',
+                           'total_equity', 'valuation', 'refi', 'escrow_names']
+            missing = [k for k in config_keys if k not in imported]
+            if missing:
+                st.error(f"Missing keys: {missing}")
+            else:
+                for k in config_keys:
+                    st.session_state[k] = imported[k]
+                st.session_state.data_version = st.session_state.get('data_version', 0) + 1
+                st.success("Configuration imported!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Import failed: {e}")
+
+with col_reset:
+    if st.button("Reset to Defaults", use_container_width=True):
+        for key in ['property', 'unit_mix', 'loan', 'tic', 'total_equity',
+                    'valuation', 'refi', 'escrow_names', 'initialized']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state.data_version = st.session_state.get('data_version', 0) + 1
+        st.rerun()
