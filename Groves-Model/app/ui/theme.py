@@ -237,6 +237,26 @@ hr {
     opacity: 0.5;
 }
 
+/* ── Page Links (Navigation cards) ────────────────────────────── */
+[data-testid="stPageLink-NavLink"] {
+    background: var(--c-surface) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: var(--radius) !important;
+    padding: 14px 20px !important;
+    box-shadow: var(--shadow-sm);
+    transition: all .15s ease;
+}
+[data-testid="stPageLink-NavLink"]:hover {
+    border-color: var(--c-accent) !important;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+[data-testid="stPageLink-NavLink"] p {
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    color: var(--c-text) !important;
+}
+
 /* ── Hide Streamlit branding ────────────────────────────────── */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}

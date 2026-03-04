@@ -57,11 +57,16 @@ df = load_data(
 )
 t12 = get_t12_totals(df)
 
+# ── Data freshness ────────────────────────────────────────────
+latest_month = sorted(df['Month'].unique())[-1]
+latest_label = latest_month.strftime('%B %Y') if hasattr(latest_month, 'strftime') else str(latest_month)
+month_count = len(df['Month'].unique())
+
 # ── Page Header ──────────────────────────────────────────────────
 page_header(
     "Dashboard",
     "Trailing 12-month performance overview",
-    right_text=f"{st.session_state.property['name']} \u2022 {st.session_state.property['units']} units",
+    right_text=f"{st.session_state.property['name']} \u2022 {st.session_state.property['units']} units \u2022 Data through {latest_label}",
 )
 
 # ── Compute MoM deltas for KPI cards ─────────────────────────────

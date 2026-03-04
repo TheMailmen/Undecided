@@ -113,11 +113,28 @@ for filename, info in CSV_FILES.items():
 
         if uploaded is not None:
             try:
-                check_df = pd.read_csv(uploaded, nrows=1)
+                check_df = pd.read_csv(uploaded)
                 missing = [c for c in info['required_cols'] if c not in check_df.columns]
                 if missing:
                     st.error(f"Missing required columns: {missing}")
                 else:
+                    row_count = len(check_df)
+                    col_count = len(check_df.columns)
+                    null_count = int(check_df.isnull().sum().sum())
+
+                    null_html = ""
+                    if null_count > 0:
+                        null_html = (
+                            f' &bull; <span style="color:{COLORS["warn"]};">'
+                            f'{null_count} null values</span>'
+                        )
+                    st.markdown(
+                        f'<p style="font-size:0.8rem;color:{COLORS["muted"]};margin:4px 0;">'
+                        f'{row_count:,} rows &bull; {col_count} columns{null_html}</p>',
+                        unsafe_allow_html=True,
+                    )
+                    st.dataframe(check_df.head(5), use_container_width=True, hide_index=True)
+
                     uploaded.seek(0)
                     dest = os.path.join(DATA_DIR, filename)
                     with open(dest, 'wb') as f:
