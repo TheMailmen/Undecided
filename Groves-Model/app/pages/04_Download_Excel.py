@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from ui.theme import inject_theme, COLORS, fmt_currency
-from ui.components import page_header, section_header, spacer, badge, kpi_row
+from ui.components import page_header, section_header, spacer, badge, kpi_row, styled_table
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -39,13 +39,18 @@ kpi_row([
 ])
 
 with st.expander("Full Assumptions", expanded=False):
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("**Loan Balance:**", fmt_currency(st.session_state.loan['est_current_balance']))
-        st.write("**Total Equity:**", fmt_currency(st.session_state.total_equity))
-    with col2:
-        for name, v in st.session_state.tic.items():
-            st.write(f"**{name}:**", f"{v['pct'] * 100:.3f}%")
+    detail_rows = [
+        ["<b>Loan Balance</b>", fmt_currency(st.session_state.loan['est_current_balance']),
+         "<b>Total Equity</b>", fmt_currency(st.session_state.total_equity)],
+    ]
+    for name, v in st.session_state.tic.items():
+        detail_rows.append([f"<b>{name}</b>", f"{v['pct'] * 100:.3f}%", "", ""])
+    styled_table(
+        ["Item", "Value", "Item", "Value"],
+        detail_rows,
+        col_align=["left", "right", "left", "right"],
+        compact=True,
+    )
 
 spacer(8)
 

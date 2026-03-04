@@ -257,6 +257,42 @@ hr {
     color: var(--c-text) !important;
 }
 
+/* ── Download Button ──────────────────────────────────────────── */
+.stDownloadButton > button {
+    border-radius: var(--radius-sm) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em;
+    transition: all .15s ease;
+    border: 1px solid var(--c-accent) !important;
+    color: var(--c-accent) !important;
+}
+.stDownloadButton > button:hover {
+    background: var(--c-accent) !important;
+    color: white !important;
+}
+
+/* ── Alerts ──────────────────────────────────────────────────── */
+.stAlert > div {
+    border-radius: var(--radius-sm) !important;
+    font-size: 0.85rem !important;
+}
+
+/* ── Captions ────────────────────────────────────────────────── */
+.stCaption, [data-testid="stCaptionContainer"] {
+    font-size: 0.75rem !important;
+    color: var(--c-muted) !important;
+}
+
+/* ── File Uploader ───────────────────────────────────────────── */
+[data-testid="stFileUploader"] section {
+    border-radius: var(--radius) !important;
+    border: 1px dashed var(--c-border) !important;
+    padding: 16px !important;
+}
+[data-testid="stFileUploader"] section:hover {
+    border-color: var(--c-accent) !important;
+}
+
 /* ── Hide Streamlit branding ────────────────────────────────── */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
