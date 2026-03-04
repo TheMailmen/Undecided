@@ -22,8 +22,6 @@ from data_engine import (
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.set_page_config(page_title="Dashboard", layout="wide") if not hasattr(st, '_is_running_with_streamlit') else None
-
 st.title("Dashboard")
 
 # Resolve CSV path

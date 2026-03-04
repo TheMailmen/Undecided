@@ -16,8 +16,6 @@ from config import CHART_OF_ACCOUNTS, TOTAL_EQUITY, PROPERTY, TIC, LOAN, VALUATI
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.set_page_config(page_title="P&L Viewer", layout="wide") if not hasattr(st, '_is_running_with_streamlit') else None
-
 # ── Design tokens ──────────────────────────────────────────────────
 C_TITLE = "#0D1B2A"
 C_ACCENT = "#1B4F72"
