@@ -108,6 +108,175 @@ fig_occ.update_layout(
 )
 st.plotly_chart(fig_occ, use_container_width=True)
 
+# ── Occupancy by Building ────────────────────────────────────────
+st.subheader("Occupancy by Building")
+
+# Identify buildings from unit prefixes
+rr_units = rr_df['Unit'].tolist()
+building_ids = sorted(set(u.split('-')[0] for u in rr_units))
+bldg_labels_map = {b: f"Bldg {b}" for b in building_ids}
+
+bldg_occ_data = []
+for m in months:
+    dt = pd.Timestamp(m)
+    label = dt.strftime('%b %y')
+    rents = rr_df[['Unit', m]].copy()
+    rents[m] = rents[m].astype(float)
+    for b in building_ids:
+        bldg_units = rents[rents['Unit'].str.startswith(b + '-')]
+        total = len(bldg_units)
+        occupied_b = (bldg_units[m] > 0).sum()
+        bldg_occ_data.append({
+            'Month': label, 'Building': bldg_labels_map[b],
+            'Occupancy': occupied_b / total * 100 if total else 0,
+            'Occupied': occupied_b, 'Total': total,
+        })
+
+bldg_occ_df = pd.DataFrame(bldg_occ_data)
+
+fig_bldg = go.Figure()
+bldg_colors = ['#1B4F72', '#1E8449', '#C00000', '#D4AC0D', '#7F8C8D']
+for i, b in enumerate(building_ids):
+    bdf = bldg_occ_df[bldg_occ_df['Building'] == bldg_labels_map[b]]
+    fig_bldg.add_trace(go.Scatter(
+        x=bdf['Month'], y=bdf['Occupancy'],
+        mode='lines+markers', name=bldg_labels_map[b],
+        line=dict(color=bldg_colors[i % len(bldg_colors)], width=2),
+        marker=dict(size=5),
+    ))
+fig_bldg.add_hline(y=95, line_dash="dash", line_color="#1E8449",
+                    annotation_text="95% target", opacity=0.5)
+fig_bldg.update_layout(
+    height=350, margin=dict(l=0, r=0, t=30, b=0),
+    yaxis_title="Occupancy %", yaxis_range=[75, 102],
+    legend=dict(orientation='h', yanchor='bottom', y=1.02),
+)
+st.plotly_chart(fig_bldg, use_container_width=True)
+
+# ── Move-In / Move-Out Net Absorption ────────────────────────────
+st.subheader("Move-Ins & Move-Outs (Net Absorption)")
+st.caption("Tracks unit turnover and net absorption each month.")
+
+move_ins = []
+move_outs = []
+
+for i in range(1, len(months)):
+    prev_rents = rr_df[months[i - 1]].astype(float)
+    curr_rents = rr_df[months[i]].astype(float)
+
+    # Move-out: was occupied (>0) last month, vacant (0) this month
+    outs = ((prev_rents > 0) & (curr_rents == 0)).sum()
+    # Move-in: was vacant (0) last month, occupied (>0) this month
+    ins = ((prev_rents == 0) & (curr_rents > 0)).sum()
+
+    move_ins.append(ins)
+    move_outs.append(outs)
+
+absorption_labels = month_labels[1:]
+net_absorption = [mi - mo for mi, mo in zip(move_ins, move_outs)]
+
+left_abs, right_abs = st.columns(2)
+
+with left_abs:
+    fig_moves = go.Figure()
+    fig_moves.add_trace(go.Bar(
+        x=absorption_labels, y=move_ins,
+        name='Move-Ins', marker_color='#1E8449', opacity=0.8,
+    ))
+    fig_moves.add_trace(go.Bar(
+        x=absorption_labels, y=[-o for o in move_outs],
+        name='Move-Outs', marker_color='#C00000', opacity=0.8,
+    ))
+    fig_moves.add_hline(y=0, line_color="#7F8C8D", opacity=0.3)
+    fig_moves.update_layout(
+        height=350, margin=dict(l=0, r=0, t=30, b=0),
+        yaxis_title="Units", barmode='relative',
+        legend=dict(orientation='h', yanchor='bottom', y=1.02),
+    )
+    st.plotly_chart(fig_moves, use_container_width=True)
+
+with right_abs:
+    net_colors = ['#1E8449' if v >= 0 else '#C00000' for v in net_absorption]
+    fig_net = go.Figure()
+    fig_net.add_trace(go.Bar(
+        x=absorption_labels, y=net_absorption,
+        marker_color=net_colors, opacity=0.85,
+        text=[f"+{v}" if v > 0 else str(v) for v in net_absorption],
+        textposition='outside',
+    ))
+    fig_net.add_hline(y=0, line_color="#7F8C8D", opacity=0.3)
+    fig_net.update_layout(
+        title="Net Absorption",
+        height=350, margin=dict(l=0, r=0, t=50, b=0),
+        yaxis_title="Net Units",
+    )
+    st.plotly_chart(fig_net, use_container_width=True)
+
+# Turnover summary KPIs
+total_move_ins = sum(move_ins)
+total_move_outs = sum(move_outs)
+turnover_rate = total_move_outs / UNITS * 100
+
+tc1, tc2, tc3, tc4 = st.columns(4)
+tc1.metric("Total Move-Ins", f"{total_move_ins}")
+tc2.metric("Total Move-Outs", f"{total_move_outs}")
+tc3.metric("Net Absorption", f"{total_move_ins - total_move_outs:+d}")
+tc4.metric("Turnover Rate", f"{turnover_rate:.1f}%")
+
+st.divider()
+
+# ── Unit-Level Occupancy Heatmap ─────────────────────────────────
+st.subheader("Unit-Level Occupancy Grid")
+st.caption("Green = occupied, Red = vacant. Select a building or view all.")
+
+occ_matrix = rr_df.set_index('Unit')[months].astype(float)
+occ_binary = (occ_matrix > 0).astype(int)
+occ_binary = occ_binary.sort_index()
+
+heatmap_month_labels = [pd.Timestamp(m).strftime('%b %y') for m in months]
+
+selected_bldg = st.selectbox(
+    "Building:", ["All Buildings"] + [bldg_labels_map[b] for b in building_ids]
+)
+
+if selected_bldg == "All Buildings":
+    display_matrix = occ_binary
+else:
+    prefix = [b for b, lbl in bldg_labels_map.items() if lbl == selected_bldg][0]
+    display_matrix = occ_binary[occ_binary.index.str.startswith(prefix + '-')]
+
+# Custom hover text showing rent or "Vacant"
+hover_text = []
+display_rents = occ_matrix.loc[display_matrix.index]
+for unit in display_matrix.index:
+    row_text = []
+    for m in months:
+        rent = display_rents.loc[unit, m]
+        if rent > 0:
+            row_text.append(f"Unit {unit}<br>{pd.Timestamp(m).strftime('%b %y')}<br>${rent:,.0f}/mo")
+        else:
+            row_text.append(f"Unit {unit}<br>{pd.Timestamp(m).strftime('%b %y')}<br>VACANT")
+    hover_text.append(row_text)
+
+fig_heat = go.Figure(data=go.Heatmap(
+    z=display_matrix.values,
+    x=heatmap_month_labels,
+    y=display_matrix.index.tolist(),
+    colorscale=[[0, '#C00000'], [1, '#1E8449']],
+    showscale=False,
+    text=hover_text,
+    hovertemplate='%{text}<extra></extra>',
+    xgap=1, ygap=1,
+))
+fig_heat.update_layout(
+    height=max(400, len(display_matrix) * 14),
+    margin=dict(l=0, r=0, t=30, b=0),
+    yaxis=dict(dtick=1, autorange='reversed'),
+)
+st.plotly_chart(fig_heat, use_container_width=True)
+
+st.divider()
+
 # ── Chart 2: Average Rent Trend ──────────────────────────────────
 st.subheader("Average In-Place Rent")
 
