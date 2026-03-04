@@ -358,3 +358,17 @@ def file_status_card(filename: str, label: str, description: str, exists: bool, 
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+
+# ── Page Footer ──────────────────────────────────────────────────
+
+def page_footer():
+    """Render a consistent page footer with branding."""
+    st.markdown(f"""
+    <div style="margin-top:48px;padding-top:16px;border-top:1px solid {COLORS['border']};">
+        <p style="font-size:0.7rem;color:{COLORS['muted']};margin:0;text-align:center;
+                  font-family:'Inter',system-ui,sans-serif;">
+            Groves Investor Model &bull; Lakeshore Management &bull; Confidential
+        </p>
+    </div>
+    """, unsafe_allow_html=True)

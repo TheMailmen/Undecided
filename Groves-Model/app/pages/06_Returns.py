@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
-from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -255,16 +255,28 @@ spacer(8)
 
 # ── Key Assumptions Recap ─────────────────────────────────────────
 with st.expander("Assumptions Used"):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.write("**Current T-12 NOI:**", fmt_currency(current_noi))
-        st.write("**Current T-12 NCF:**", fmt_currency(current_ncf))
-        st.write("**Purchase Price:**", fmt_currency(purchase_price))
-    with col2:
-        st.write("**Exit Cap Rate:**", fmt_pct(exit_cap_rate))
-        st.write("**Hold Period:**", f"{hold_years} years")
-        st.write("**NOI Growth:**", f"{fmt_pct(annual_noi_growth)}/yr")
-    with col3:
-        st.write("**Selling Costs:**", fmt_pct(selling_costs_pct))
-        st.write("**Loan Balance:**", fmt_currency(loan_balance))
-        st.write("**Total Equity:**", fmt_currency(total_equity))
+    assumptions_headers = ["Assumption", "Value", "Assumption", "Value", "Assumption", "Value"]
+    assumptions_rows = [
+        [
+            "<b>T-12 NOI</b>", fmt_currency(current_noi),
+            "<b>Exit Cap Rate</b>", fmt_pct(exit_cap_rate),
+            "<b>Selling Costs</b>", fmt_pct(selling_costs_pct),
+        ],
+        [
+            "<b>T-12 NCF</b>", fmt_currency(current_ncf),
+            "<b>Hold Period</b>", f"{hold_years} years",
+            "<b>Loan Balance</b>", fmt_currency(loan_balance),
+        ],
+        [
+            "<b>Purchase Price</b>", fmt_currency(purchase_price),
+            "<b>NOI Growth</b>", f"{fmt_pct(annual_noi_growth)}/yr",
+            "<b>Total Equity</b>", fmt_currency(total_equity),
+        ],
+    ]
+    styled_table(
+        assumptions_headers, assumptions_rows,
+        col_align=["left", "right", "left", "right", "left", "right"],
+        compact=True,
+    )
+
+page_footer()

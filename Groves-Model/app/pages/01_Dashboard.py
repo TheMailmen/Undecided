@@ -18,7 +18,7 @@ from data_engine import (
     load_pl_data,
 )
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer, no_data_page
+from ui.components import page_header, kpi_row, section_header, spacer, no_data_page, styled_table, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -205,7 +205,9 @@ comps_csv = os.path.join(BASE_DIR, 'data', 'rent_comps.csv')
 if os.path.exists(comps_csv):
     section_header("Rent Comparables")
     comps_df = pd.read_csv(comps_csv)
-    st.dataframe(comps_df, use_container_width=True, hide_index=True)
+    comps_headers = list(comps_df.columns)
+    comps_rows = [[str(v) for v in row] for row in comps_df.values]
+    styled_table(comps_headers, comps_rows, compact=True)
 
 # ── T-12 Data Export ─────────────────────────────────────────────
 spacer(8)
@@ -222,3 +224,5 @@ with st.expander("Export T-12 Data"):
         mime="text/csv",
         use_container_width=True,
     )
+
+page_footer()

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_monthly_series, get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -207,3 +207,5 @@ fig_gauge.update_layout(
     font=dict(family="Inter, system-ui, sans-serif"),
 )
 st.plotly_chart(fig_gauge, use_container_width=True)
+
+page_footer()
