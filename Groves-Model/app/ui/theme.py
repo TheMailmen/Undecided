@@ -25,6 +25,9 @@ COLORS = {
     "error":      "#DC2626",
     "row_alt":    "#F9FAFB",   # Alternating table row
     "kpi_bg":     "#F0FDFA",   # Teal-tinted KPI highlight
+    "subtotal":   "#E8EAED",   # Subtotal row background
+    "note_bg":    "#E0F2FE",   # Accent-tinted highlight row
+    "grid":       "#F3F4F6",   # Chart gridlines
 }
 
 SPACING = {"xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "xxl": 32}
@@ -40,13 +43,22 @@ PLOTLY_LAYOUT = dict(
         orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
         font=dict(size=11, color=COLORS["muted"]),
     ),
-    xaxis=dict(gridcolor="#F3F4F6", zerolinecolor="#E5E7EB"),
-    yaxis=dict(gridcolor="#F3F4F6", zerolinecolor="#E5E7EB"),
+    xaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["border"]),
+    yaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["border"]),
 )
 
 PLOTLY_COLORS = [
     COLORS["primary"], COLORS["accent"], COLORS["success"],
     "#6366F1", COLORS["warn"], COLORS["error"], "#8B5CF6", "#EC4899",
+]
+
+# Heatmap / continuous colorscale — teal-to-navy gradient
+HEATMAP_COLORSCALE = [
+    [0.0, COLORS["kpi_bg"]],
+    [0.25, "#99F6E4"],
+    [0.5, "#2DD4BF"],
+    [0.75, COLORS["accent"]],
+    [1.0, COLORS["primary"]],
 ]
 
 

@@ -131,8 +131,8 @@ fig.add_hline(y=0, line_dash="dot", line_color=COLORS["muted"], opacity=0.3)
 fig.update_layout(
     **PLOTLY_LAYOUT,
     height=400,
-    yaxis=dict(title="Monthly ($)", gridcolor="#F3F4F6"),
-    yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right', gridcolor="#F3F4F6"),
+    yaxis=dict(title="Monthly ($)", gridcolor=COLORS["grid"]),
+    yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right', gridcolor=COLORS["grid"]),
 )
 st.plotly_chart(fig, use_container_width=True)
 

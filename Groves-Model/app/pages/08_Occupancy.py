@@ -273,7 +273,7 @@ fig_heat = go.Figure(data=go.Heatmap(
 fig_heat.update_layout(
     **PLOTLY_LAYOUT,
     height=max(400, len(display_matrix) * 14),
-    yaxis=dict(dtick=1, autorange='reversed', gridcolor="#F3F4F6"),
+    yaxis=dict(dtick=1, autorange='reversed', gridcolor=COLORS["grid"]),
 )
 st.plotly_chart(fig_heat, use_container_width=True)
 

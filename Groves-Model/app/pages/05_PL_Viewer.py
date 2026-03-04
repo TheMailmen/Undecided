@@ -29,9 +29,9 @@ C_TITLE = COLORS["primary"]
 C_ACCENT = COLORS["accent"]
 C_GREEN = COLORS["success"]
 C_RED = COLORS["error"]
-C_SUBTOTAL = "#E8EAED"
+C_SUBTOTAL = COLORS["subtotal"]
 C_ALT = COLORS["row_alt"]
-C_NOTE_BG = "#E0F2FE"
+C_NOTE_BG = COLORS["note_bg"]
 C_SECTION = COLORS["primary"]
 
 # ── Data loading ───────────────────────────────────────────────────

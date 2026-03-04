@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
-from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, HEATMAP_COLORSCALE, fmt_currency, fmt_pct, fmt_multiple
 from ui.components import (
     page_header, kpi_row, section_header, sensitivity_matrix, spacer, badge,
     styled_table, no_data_page,
@@ -421,13 +421,7 @@ for cap in cap_rates:
     exit_val_matrix.append(row)
 
 # Custom teal-navy colorscale
-colorscale = [
-    [0.0, "#F0FDFA"],
-    [0.25, "#99F6E4"],
-    [0.5, "#2DD4BF"],
-    [0.75, "#2F8F9D"],
-    [1.0, "#0B1F3B"],
-]
+colorscale = HEATMAP_COLORSCALE
 
 fig = go.Figure(data=go.Heatmap(
     z=exit_val_matrix,
@@ -448,7 +442,7 @@ fig.update_layout(
     height=420,
     xaxis_title="Annual NOI Growth",
     yaxis_title="Exit Cap Rate",
-    yaxis=dict(autorange='reversed', gridcolor="#F3F4F6"),
+    yaxis=dict(autorange='reversed', gridcolor=COLORS["grid"]),
 )
 st.plotly_chart(fig, use_container_width=True)
 

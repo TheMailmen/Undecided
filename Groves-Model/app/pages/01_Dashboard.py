@@ -172,7 +172,7 @@ with left_col:
     fig_exp.update_layout(
         **PLOTLY_LAYOUT,
         height=400,
-        yaxis=dict(autorange='reversed', gridcolor="#F3F4F6"),
+        yaxis=dict(autorange='reversed', gridcolor=COLORS["grid"]),
     )
     st.plotly_chart(fig_exp, use_container_width=True)
 

@@ -124,20 +124,20 @@ st.markdown(f"""
 
 st.divider()
 
-# Navigation guide
+# Navigation guide — clickable cards
 nav_items = [
-    ("Dashboard", "KPI cards and interactive trend charts", "\U0001f4ca"),
-    ("Assumptions", "Edit model assumptions with live recalculation", "\u2699\ufe0f"),
-    ("Upload Data", "Upload new CSV data files", "\U0001f4e4"),
-    ("Download Excel", "Generate and download the formatted workbook", "\U0001f4e5"),
-    ("P&L Viewer", "Executive Summary, T-12, Full P&L, and Distribution Model", "\U0001f4cb"),
-    ("Returns", "Projected IRR, equity multiple, and per-owner analysis", "\U0001f4b0"),
-    ("Scenarios", "Sensitivity tables and what-if analysis", "\U0001f500"),
-    ("Occupancy", "Occupancy trends, rent growth, loss-to-lease, renovation ROI", "\U0001f3e0"),
-    ("Variance", "Budget vs actual comparison with waterfall", "\U0001f4c9"),
-    ("Investor Portal", "Per-investor distribution statements and equity recovery", "\U0001f464"),
-    ("Refi", "Refinance scenario comparison and rate sensitivity", "\U0001f3e6"),
-    ("PDF Report", "One-click investor report generation", "\U0001f4c4"),
+    ("Dashboard", "KPI cards and interactive trend charts", "\U0001f4ca", "pages/01_Dashboard.py"),
+    ("Assumptions", "Edit model assumptions with live recalculation", "\u2699\ufe0f", "pages/02_Assumptions.py"),
+    ("Upload Data", "Upload new CSV data files", "\U0001f4e4", "pages/03_Upload_Data.py"),
+    ("Download Excel", "Generate and download the formatted workbook", "\U0001f4e5", "pages/04_Download_Excel.py"),
+    ("P&L Viewer", "Executive Summary, T-12, Full P&L, and Distribution Model", "\U0001f4cb", "pages/05_PL_Viewer.py"),
+    ("Returns", "Projected IRR, equity multiple, and per-owner analysis", "\U0001f4b0", "pages/06_Returns.py"),
+    ("Scenarios", "Sensitivity tables and what-if analysis", "\U0001f500", "pages/07_Scenarios.py"),
+    ("Occupancy", "Occupancy trends, rent growth, loss-to-lease, renovation ROI", "\U0001f3e0", "pages/08_Occupancy.py"),
+    ("Variance", "Budget vs actual comparison with waterfall", "\U0001f4c9", "pages/09_Variance.py"),
+    ("Investor Portal", "Per-investor distribution statements and equity recovery", "\U0001f464", "pages/10_Investor_Portal.py"),
+    ("Refi", "Refinance scenario comparison and rate sensitivity", "\U0001f3e6", "pages/11_Refi.py"),
+    ("PDF Report", "One-click investor report generation", "\U0001f4c4", "pages/12_PDF_Report.py"),
 ]
 
 cols_per_row = 3
@@ -146,17 +146,16 @@ for i in range(0, len(nav_items), cols_per_row):
     for j, col in enumerate(cols):
         idx = i + j
         if idx < len(nav_items):
-            title, desc, icon = nav_items[idx]
+            title, desc, icon, page_path = nav_items[idx]
             with col:
+                st.page_link(
+                    page_path,
+                    label=f"{icon} **{title}**",
+                    use_container_width=True,
+                )
                 st.markdown(f"""
-                <div style="background:{COLORS['surface']};border:1px solid {COLORS['border']};
-                            border-radius:12px;padding:16px 20px;margin-bottom:12px;
-                            box-shadow:0 1px 3px rgba(0,0,0,.03);">
-                    <p style="margin:0;font-weight:600;font-size:0.9rem;color:{COLORS['text']};">
-                        {icon} {title}</p>
-                    <p style="margin:4px 0 0 0;font-size:0.8rem;color:{COLORS['muted']};">
-                        {desc}</p>
-                </div>
+                <p style="margin:-8px 0 12px 0;font-size:0.8rem;color:{COLORS['muted']};
+                          padding:0 4px;">{desc}</p>
                 """, unsafe_allow_html=True)
 
 st.markdown(f"""
