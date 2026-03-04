@@ -11,13 +11,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
+from ui.components import page_header, kpi_row, section_header, spacer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Investment Returns")
-st.caption("Projected IRR, equity multiple, and per-owner returns based on exit assumptions.")
+inject_theme()
+
+page_header(
+    "Investment Returns",
+    "Projected IRR, equity multiple, and per-owner returns based on exit assumptions",
+)
 
 # ── Data loading ──────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

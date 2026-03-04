@@ -10,13 +10,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
+from ui.components import page_header, section_header, spacer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Refinance Scenario Analysis")
-st.caption("Compare current debt terms vs refinance options.")
+inject_theme()
+
+page_header(
+    "Refinance Scenario Analysis",
+    "Compare current debt terms vs refinance options",
+)
 
 # ── Data loading ──────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

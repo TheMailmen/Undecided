@@ -5,14 +5,22 @@ import sys
 
 import streamlit as st
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+from ui.theme import inject_theme
+from ui.components import page_header
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Model Assumptions")
-st.caption("Edit values below. Changes are reflected immediately on the Dashboard.")
+inject_theme()
+
+page_header(
+    "Model Assumptions",
+    "Edit values below \u2014 changes are reflected immediately across all pages",
+)
 
 # ── Property Details ──────────────────────────────────────────────
 with st.expander("Property Details", expanded=True):

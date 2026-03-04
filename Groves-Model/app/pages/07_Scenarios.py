@@ -1,9 +1,9 @@
-"""Scenarios — Sensitivity tables and what-if analysis."""
+"""Scenarios — Sensitivity tables, what-if analysis, and scenario comparison."""
 
+import json
 import os
 import sys
 
-import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -11,22 +11,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct, fmt_multiple
+from ui.components import (
+    page_header, kpi_row, section_header, sensitivity_matrix, spacer, badge,
+    styled_table,
+)
 
-# Ensure session state is initialized
+# ── Init ──────────────────────────────────────────────────────────
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Scenario & Sensitivity Analysis")
-st.caption("What-if analysis across exit cap rates, NOI growth, and hold periods.")
+inject_theme()
 
-# ── Data loading ──────────────────────────────────────────────────
+# ── Data loading (cached) ────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
 PL_CSV = os.path.join(BASE_DIR, 'data', 'pl_actuals.csv')
-
-cfg = {
-    'total_equity': st.session_state.total_equity,
-    'purchase_price': st.session_state.property['purchase_price'],
-}
 
 
 @st.cache_data(show_spinner="Loading financial data...")
@@ -39,24 +38,21 @@ def load_data(_version, csv_path, total_equity, purchase_price):
 
 df = load_data(
     st.session_state.data_version, PL_CSV,
-    cfg['total_equity'], cfg['purchase_price'],
+    st.session_state.total_equity,
+    st.session_state.property['purchase_price'],
 )
 t12 = get_t12_totals(df)
 
-# ── Helpers ───────────────────────────────────────────────────────
+# ── Financial constants ──────────────────────────────────────────
 current_noi = t12['NET OPERATING INCOME (NOI)']
 current_ncf = t12['NET CASH FLOW']
+current_cfads = t12['CASH FLOW AFTER DEBT SERVICE']
 purchase_price = st.session_state.property['purchase_price']
 total_equity = st.session_state.total_equity
 loan_balance = st.session_state.loan['est_current_balance']
 
-C_TITLE = "#0D1B2A"
-C_GREEN = "#1E8449"
-C_RED = "#C00000"
-C_ALT = "#F7F9FC"
-C_ACCENT = "#1B4F72"
 
-
+# ── Core projection engine ───────────────────────────────────────
 def compute_irr(cashflows, guess=0.10, tol=1e-8, max_iter=200):
     rate = guess
     for _ in range(max_iter):
@@ -72,7 +68,7 @@ def compute_irr(cashflows, guess=0.10, tol=1e-8, max_iter=200):
 
 
 def project_returns(exit_cap, noi_growth, hold, sell_cost=0.02):
-    """Compute IRR and equity multiple for a given scenario."""
+    """Compute IRR, equity multiple, exit value, and net proceeds."""
     proj_noi = current_noi * (1 + noi_growth) ** hold
     exit_val = proj_noi / exit_cap
     net_sale = exit_val * (1 - sell_cost) - loan_balance
@@ -80,194 +76,337 @@ def project_returns(exit_cap, noi_growth, hold, sell_cost=0.02):
     cfs = [-total_equity]
     for yr in range(1, hold):
         cfs.append(current_ncf * (1 + noi_growth) ** yr)
-    final_cf = current_ncf * (1 + noi_growth) ** hold + net_sale
-    cfs.append(final_cf)
+    cfs.append(current_ncf * (1 + noi_growth) ** hold + net_sale)
 
     total_return = sum(cfs[1:])
     em = total_return / total_equity if total_equity else 0
     irr = compute_irr(cfs)
-    return irr, em, exit_val, net_sale
+    avg_coc = (current_cfads / total_equity) if total_equity else 0
+    return irr, em, exit_val, net_sale, avg_coc
 
 
-# ── Scenario Controls ─────────────────────────────────────────────
-st.subheader("Base Assumptions")
+# ── Default scenarios ────────────────────────────────────────────
+DEFAULT_SCENARIOS = {
+    'Conservative': {'exit_cap': 0.075, 'noi_growth': 0.01, 'hold': 5, 'sell_cost': 0.02},
+    'Base Case':    {'exit_cap': 0.065, 'noi_growth': 0.03, 'hold': 5, 'sell_cost': 0.02},
+    'Optimistic':   {'exit_cap': 0.055, 'noi_growth': 0.05, 'hold': 5, 'sell_cost': 0.02},
+    'Quick Flip':   {'exit_cap': 0.060, 'noi_growth': 0.03, 'hold': 3, 'sell_cost': 0.02},
+}
 
-col1, col2, col3 = st.columns(3)
-with col1:
+if 'scenarios' not in st.session_state:
+    st.session_state.scenarios = dict(DEFAULT_SCENARIOS)
+
+# ══════════════════════════════════════════════════════════════════
+# PAGE LAYOUT
+# ══════════════════════════════════════════════════════════════════
+
+page_header(
+    "Scenario & Sensitivity Analysis",
+    "What-if modeling across exit cap rates, NOI growth, and hold periods",
+    right_text=f"T-12 NOI: {fmt_currency(current_noi)}",
+)
+
+# ── Sidebar: Scenario Controls ───────────────────────────────────
+with st.sidebar:
+    st.markdown(f"""
+    <div style="margin-bottom:20px;">
+        <p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;
+                   color:rgba(255,255,255,.5);margin:0 0 4px 0;font-weight:600;">
+            Scenario Engine
+        </p>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,.85);margin:0;">
+            Adjust assumptions below to update all sensitivity tables and charts.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
     base_hold = st.number_input(
         "Hold Period (years)", value=5, min_value=1, max_value=15,
-        step=1, key="sc_hold")
-with col2:
+        step=1, key="sc_hold",
+        help="Number of years before exit/sale",
+    )
+    base_exit_cap = st.number_input(
+        "Base Exit Cap Rate", value=0.065, min_value=0.03, max_value=0.12,
+        step=0.005, format="%.3f", key="sc_exit_cap",
+        help="Expected cap rate at disposition",
+    )
+    base_noi_growth = st.number_input(
+        "Annual NOI Growth", value=0.03, min_value=-0.05, max_value=0.15,
+        step=0.005, format="%.3f", key="sc_noi_growth",
+        help="Projected annual NOI growth rate",
+    )
     base_sell_cost = st.number_input(
-        "Selling Costs (%)", value=0.02, min_value=0.0, max_value=0.10,
-        step=0.005, format="%.3f", key="sc_sell")
-with col3:
-    st.metric("Current T-12 NOI", f"${current_noi:,.0f}")
+        "Selling Costs", value=0.02, min_value=0.0, max_value=0.10,
+        step=0.005, format="%.3f", key="sc_sell",
+        help="Broker + closing costs as % of exit value",
+    )
 
-st.divider()
+    # Validation
+    if base_exit_cap < 0.04:
+        st.warning("Exit cap below 4% is aggressive", icon="\u26a0\ufe0f")
+    if base_noi_growth > 0.08:
+        st.warning("NOI growth above 8% is unusual", icon="\u26a0\ufe0f")
+
+    st.markdown("---")
+
+    # Save / Load / Reset
+    st.markdown(
+        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+        'color:rgba(255,255,255,.5);margin:0 0 8px 0;font-weight:600;">'
+        'Scenario Management</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Save current scenario
+    save_name = st.text_input("Scenario name", value="", key="sc_save_name",
+                              placeholder="e.g., Aggressive Growth")
+    if st.button("Save Scenario", use_container_width=True, type="primary"):
+        if save_name.strip():
+            st.session_state.scenarios[save_name.strip()] = {
+                'exit_cap': base_exit_cap,
+                'noi_growth': base_noi_growth,
+                'hold': base_hold,
+                'sell_cost': base_sell_cost,
+            }
+            st.success(f"Saved: {save_name.strip()}")
+        else:
+            st.error("Enter a name first")
+
+    # Export JSON
+    export_data = json.dumps(st.session_state.scenarios, indent=2)
+    st.download_button(
+        "Export All Scenarios",
+        data=export_data,
+        file_name="groves_scenarios.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    # Import JSON
+    uploaded = st.file_uploader("Import scenarios", type=["json"], key="sc_import")
+    if uploaded is not None:
+        try:
+            imported = json.loads(uploaded.read())
+            st.session_state.scenarios.update(imported)
+            st.success(f"Imported {len(imported)} scenario(s)")
+        except Exception:
+            st.error("Invalid JSON file")
+
+    # Reset
+    if st.button("Reset to Defaults", use_container_width=True):
+        st.session_state.scenarios = dict(DEFAULT_SCENARIOS)
+        st.rerun()
+
+
+# ── KPI Summary (base case from sidebar inputs) ─────────────────
+base_irr, base_em, base_exit_val, base_net_sale, base_coc = project_returns(
+    base_exit_cap, base_noi_growth, base_hold, base_sell_cost,
+)
+
+kpi_row([
+    {"label": "Projected IRR", "value": fmt_pct(base_irr)},
+    {"label": "Equity Multiple", "value": fmt_multiple(base_em)},
+    {"label": "Avg Cash-on-Cash", "value": fmt_pct(base_coc)},
+    {"label": "Exit Value", "value": fmt_currency(base_exit_val)},
+    {"label": "Net Proceeds", "value": fmt_currency(base_net_sale)},
+])
+
+spacer(16)
 
 # ══════════════════════════════════════════════════════════════════
-# SENSITIVITY TABLE 1: Exit Cap Rate × NOI Growth → IRR
+# SCENARIO COMPARISON TABLE
 # ══════════════════════════════════════════════════════════════════
-st.subheader("IRR Sensitivity: Exit Cap Rate vs NOI Growth")
+section_header("Scenario Comparison", "Side-by-side view of all saved scenarios")
+
+scenarios = st.session_state.scenarios
+sc_names = list(scenarios.keys())
+
+# Build comparison table
+headers = ["Metric"] + sc_names
+comparison_rows = []
+
+irr_vals, em_vals, exit_vals, net_vals, coc_vals = [], [], [], [], []
+for name in sc_names:
+    p = scenarios[name]
+    irr_v, em_v, exit_v, net_v, coc_v = project_returns(
+        p['exit_cap'], p['noi_growth'], p['hold'], p.get('sell_cost', 0.02),
+    )
+    irr_vals.append(irr_v)
+    em_vals.append(em_v)
+    exit_vals.append(exit_v)
+    net_vals.append(net_v)
+    coc_vals.append(coc_v)
+
+# Assumptions rows
+comparison_rows.append(
+    ["Exit Cap Rate"] + [fmt_pct(scenarios[n]['exit_cap']) for n in sc_names]
+)
+comparison_rows.append(
+    ["NOI Growth"] + [fmt_pct(scenarios[n]['noi_growth']) for n in sc_names]
+)
+comparison_rows.append(
+    ["Hold Period"] + [f"{scenarios[n]['hold']} yr" for n in sc_names]
+)
+
+# Results rows
+comparison_rows.append(
+    [f"<b>IRR</b>"] + [
+        f"<span style='color:{COLORS['success'] if v > 0.10 else COLORS['error'] if v < 0 else COLORS['text']};font-weight:600;'>"
+        f"{fmt_pct(v)}</span>" for v in irr_vals
+    ]
+)
+comparison_rows.append(
+    [f"<b>Equity Multiple</b>"] + [
+        f"<span style='color:{COLORS['success'] if v > 2.0 else COLORS['text']};font-weight:600;'>"
+        f"{fmt_multiple(v)}</span>" for v in em_vals
+    ]
+)
+comparison_rows.append(
+    [f"<b>Exit Value</b>"] + [f"<b>{fmt_currency(v)}</b>" for v in exit_vals]
+)
+comparison_rows.append(
+    [f"<b>Net Proceeds</b>"] + [
+        f"<span style='color:{COLORS['success'] if v > 0 else COLORS['error']};font-weight:600;'>"
+        f"{fmt_currency(v)}</span>" for v in net_vals
+    ]
+)
+
+col_align = ["left"] + ["center"] * len(sc_names)
+styled_table(headers, comparison_rows, col_align=col_align, highlight_rows={3, 4, 5, 6})
+
+spacer(8)
+
+# ══════════════════════════════════════════════════════════════════
+# SENSITIVITY TABLES
+# ══════════════════════════════════════════════════════════════════
+section_header(
+    "IRR Sensitivity Matrix",
+    "Exit Cap Rate vs Annual NOI Growth"
+)
 
 cap_rates = [0.055, 0.060, 0.065, 0.070, 0.075, 0.080]
 noi_growths = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05]
-
-irr_matrix = []
-for cap in cap_rates:
-    row = []
-    for growth in noi_growths:
-        irr_val, _, _, _ = project_returns(cap, growth, base_hold, base_sell_cost)
-        row.append(irr_val)
-    irr_matrix.append(row)
-
-# Build HTML table
 cap_labels = [f"{c*100:.1f}%" for c in cap_rates]
 growth_labels = [f"{g*100:.0f}%" for g in noi_growths]
 
-html = [f'''
-<div style="overflow-x:auto;margin-bottom:20px;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;text-align:center;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;">
-    <td style="padding:8px 12px;text-align:left;">Exit Cap ↓ / NOI Growth →</td>
-''']
-for gl in growth_labels:
-    html.append(f'    <td style="padding:8px 12px;">{gl}</td>')
-html.append('</tr></thead><tbody>')
-
-for i, (cap_label, row) in enumerate(zip(cap_labels, irr_matrix)):
-    bg = f"background-color:{C_ALT};" if i % 2 == 0 else ""
-    html.append(f'<tr style="{bg}">')
-    html.append(f'<td style="padding:6px 12px;font-weight:700;text-align:left;">{cap_label}</td>')
-    for val in row:
-        color = C_GREEN if val > 0.10 else (C_RED if val < 0 else "#333")
-        weight = "700" if val > 0.10 else "400"
-        html.append(f'<td style="padding:6px 12px;color:{color};font-weight:{weight};">{val*100:.1f}%</td>')
-    html.append('</tr>')
-
-html.append('</tbody></table></div>')
-st.markdown('\n'.join(html), unsafe_allow_html=True)
-
-st.divider()
-
-# ══════════════════════════════════════════════════════════════════
-# SENSITIVITY TABLE 2: Exit Cap Rate × NOI Growth → Equity Multiple
-# ══════════════════════════════════════════════════════════════════
-st.subheader("Equity Multiple Sensitivity: Exit Cap Rate vs NOI Growth")
-
-em_matrix = []
+# Compute IRR matrix
+irr_matrix_vals = []
+irr_matrix_display = []
 for cap in cap_rates:
-    row = []
+    row_vals = []
+    row_display = []
     for growth in noi_growths:
-        _, em_val, _, _ = project_returns(cap, growth, base_hold, base_sell_cost)
-        row.append(em_val)
-    em_matrix.append(row)
+        irr_val, _, _, _, _ = project_returns(cap, growth, base_hold, base_sell_cost)
+        row_vals.append(irr_val)
+        row_display.append(f"{irr_val*100:.1f}%")
+    irr_matrix_vals.append(row_vals)
+    irr_matrix_display.append(row_display)
 
-html2 = [f'''
-<div style="overflow-x:auto;margin-bottom:20px;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;text-align:center;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;">
-    <td style="padding:8px 12px;text-align:left;">Exit Cap ↓ / NOI Growth →</td>
-''']
-for gl in growth_labels:
-    html2.append(f'    <td style="padding:8px 12px;">{gl}</td>')
-html2.append('</tr></thead><tbody>')
 
-for i, (cap_label, row) in enumerate(zip(cap_labels, em_matrix)):
-    bg = f"background-color:{C_ALT};" if i % 2 == 0 else ""
-    html2.append(f'<tr style="{bg}">')
-    html2.append(f'<td style="padding:6px 12px;font-weight:700;text-align:left;">{cap_label}</td>')
-    for val in row:
-        color = C_GREEN if val > 2.0 else (C_RED if val < 1.0 else "#333")
-        weight = "700" if val > 2.0 else "400"
-        html2.append(f'<td style="padding:6px 12px;color:{color};font-weight:{weight};">{val:.2f}x</td>')
-    html2.append('</tr>')
+def irr_color(ri, ci, cell_str):
+    v = irr_matrix_vals[ri][ci]
+    if v > 0.10:
+        return COLORS["success"]
+    if v < 0:
+        return COLORS["error"]
+    return None
 
-html2.append('</tbody></table></div>')
-st.markdown('\n'.join(html2), unsafe_allow_html=True)
 
-st.divider()
+sensitivity_matrix(
+    title="",
+    row_label="Exit Cap",
+    col_label="NOI Growth",
+    row_keys=cap_labels,
+    col_keys=growth_labels,
+    values=irr_matrix_display,
+    color_fn=irr_color,
+)
 
-# ══════════════════════════════════════════════════════════════════
-# SENSITIVITY TABLE 3: Hold Period × Exit Cap Rate → IRR
-# ══════════════════════════════════════════════════════════════════
-st.subheader("IRR by Hold Period")
+# ── Equity Multiple Sensitivity ──────────────────────────────────
+section_header(
+    "Equity Multiple Sensitivity",
+    "Exit Cap Rate vs Annual NOI Growth"
+)
+
+em_matrix_vals = []
+em_matrix_display = []
+for cap in cap_rates:
+    row_vals = []
+    row_display = []
+    for growth in noi_growths:
+        _, em_val, _, _, _ = project_returns(cap, growth, base_hold, base_sell_cost)
+        row_vals.append(em_val)
+        row_display.append(f"{em_val:.2f}x")
+    em_matrix_vals.append(row_vals)
+    em_matrix_display.append(row_display)
+
+
+def em_color(ri, ci, cell_str):
+    v = em_matrix_vals[ri][ci]
+    if v > 2.0:
+        return COLORS["success"]
+    if v < 1.0:
+        return COLORS["error"]
+    return None
+
+
+sensitivity_matrix(
+    title="",
+    row_label="Exit Cap",
+    col_label="NOI Growth",
+    row_keys=cap_labels,
+    col_keys=growth_labels,
+    values=em_matrix_display,
+    color_fn=em_color,
+)
+
+# ── Hold Period Analysis ─────────────────────────────────────────
+section_header(
+    "IRR by Hold Period",
+    f"NOI Growth: {fmt_pct(base_noi_growth)} (from sidebar)"
+)
 
 hold_periods = [3, 5, 7, 10]
+hold_labels = [f"{h} yr" for h in hold_periods]
 
-col1, col2 = st.columns([1, 1])
-with col1:
-    scenario_growth = st.number_input(
-        "NOI Growth for Hold Period Analysis",
-        value=0.03, min_value=-0.05, max_value=0.15,
-        step=0.005, format="%.3f", key="sc_growth_hold")
-
-html3 = [f'''
-<div style="overflow-x:auto;margin-bottom:20px;">
-<table style="border-collapse:collapse;width:100%;font-family:Calibri,sans-serif;font-size:13px;text-align:center;">
-<thead>
-<tr style="background-color:{C_TITLE};color:white;font-weight:700;">
-    <td style="padding:8px 12px;text-align:left;">Exit Cap ↓ / Hold →</td>
-''']
-for h in hold_periods:
-    html3.append(f'    <td style="padding:8px 12px;">{h} Years</td>')
-html3.append('</tr></thead><tbody>')
-
-for i, cap in enumerate(cap_rates):
-    bg = f"background-color:{C_ALT};" if i % 2 == 0 else ""
-    html3.append(f'<tr style="{bg}">')
-    html3.append(f'<td style="padding:6px 12px;font-weight:700;text-align:left;">{cap*100:.1f}%</td>')
+hold_matrix_vals = []
+hold_matrix_display = []
+for cap in cap_rates:
+    row_vals = []
+    row_display = []
     for h in hold_periods:
-        irr_val, _, _, _ = project_returns(cap, scenario_growth, h, base_sell_cost)
-        color = C_GREEN if irr_val > 0.10 else (C_RED if irr_val < 0 else "#333")
-        weight = "700" if irr_val > 0.10 else "400"
-        html3.append(f'<td style="padding:6px 12px;color:{color};font-weight:{weight};">{irr_val*100:.1f}%</td>')
-    html3.append('</tr>')
+        irr_val, _, _, _, _ = project_returns(cap, base_noi_growth, h, base_sell_cost)
+        row_vals.append(irr_val)
+        row_display.append(f"{irr_val*100:.1f}%")
+    hold_matrix_vals.append(row_vals)
+    hold_matrix_display.append(row_display)
 
-html3.append('</tbody></table></div>')
-st.markdown('\n'.join(html3), unsafe_allow_html=True)
 
-st.divider()
+def hold_color(ri, ci, cell_str):
+    v = hold_matrix_vals[ri][ci]
+    if v > 0.10:
+        return COLORS["success"]
+    if v < 0:
+        return COLORS["error"]
+    return None
+
+
+sensitivity_matrix(
+    title="",
+    row_label="Exit Cap",
+    col_label="Hold Period",
+    row_keys=cap_labels,
+    col_keys=hold_labels,
+    values=hold_matrix_display,
+    color_fn=hold_color,
+)
 
 # ══════════════════════════════════════════════════════════════════
-# SCENARIO COMPARISON: Side-by-side named scenarios
+# EXIT VALUE HEATMAP
 # ══════════════════════════════════════════════════════════════════
-st.subheader("Named Scenario Comparison")
-
-scenarios = {
-    'Conservative': {'exit_cap': 0.075, 'noi_growth': 0.01, 'hold': 5},
-    'Base Case':    {'exit_cap': 0.065, 'noi_growth': 0.03, 'hold': 5},
-    'Optimistic':   {'exit_cap': 0.055, 'noi_growth': 0.05, 'hold': 5},
-    'Quick Flip':   {'exit_cap': 0.060, 'noi_growth': 0.03, 'hold': 3},
-}
-
-cols = st.columns(len(scenarios))
-for col, (name, params) in zip(cols, scenarios.items()):
-    irr_val, em_val, exit_val, net_sale = project_returns(
-        params['exit_cap'], params['noi_growth'],
-        params['hold'], base_sell_cost,
-    )
-    proj_noi = current_noi * (1 + params['noi_growth']) ** params['hold']
-
-    with col:
-        st.markdown(f"**{name}**")
-        st.caption(
-            f"Cap: {params['exit_cap']*100:.1f}% | "
-            f"Growth: {params['noi_growth']*100:.0f}% | "
-            f"Hold: {params['hold']}yr"
-        )
-        st.metric("IRR", f"{irr_val*100:.1f}%")
-        st.metric("Equity Multiple", f"{em_val:.2f}x")
-        st.metric("Exit Value", f"${exit_val:,.0f}")
-        st.metric("Net Proceeds", f"${net_sale:,.0f}")
-
-st.divider()
-
-# ── Exit Value Heatmap ────────────────────────────────────────────
-st.subheader("Exit Value Heatmap")
+section_header("Exit Value Heatmap", "Projected disposition value by cap rate and NOI growth")
 
 exit_val_matrix = []
 for cap in cap_rates:
@@ -277,20 +416,99 @@ for cap in cap_rates:
         row.append(proj_noi / cap)
     exit_val_matrix.append(row)
 
+# Custom teal-navy colorscale
+colorscale = [
+    [0.0, "#F0FDFA"],
+    [0.25, "#99F6E4"],
+    [0.5, "#2DD4BF"],
+    [0.75, "#2F8F9D"],
+    [1.0, "#0B1F3B"],
+]
+
 fig = go.Figure(data=go.Heatmap(
     z=exit_val_matrix,
-    x=[f"{g*100:.0f}% growth" for g in noi_growths],
-    y=[f"{c*100:.1f}% cap" for c in cap_rates],
-    colorscale='Greens',
+    x=[f"{g*100:.0f}%" for g in noi_growths],
+    y=[f"{c*100:.1f}%" for c in cap_rates],
+    colorscale=colorscale,
     texttemplate="$%{z:,.0f}",
-    textfont=dict(size=11),
+    textfont=dict(size=11, family="Inter, system-ui, sans-serif"),
     hoverongaps=False,
-    colorbar=dict(title="Exit Value ($)"),
+    colorbar=dict(
+        title=dict(text="Exit Value", font=dict(size=11)),
+        tickprefix="$",
+        tickformat=",",
+    ),
 ))
 fig.update_layout(
-    height=400, margin=dict(l=0, r=0, t=30, b=0),
+    **PLOTLY_LAYOUT,
+    height=420,
     xaxis_title="Annual NOI Growth",
     yaxis_title="Exit Cap Rate",
-    yaxis=dict(autorange='reversed'),
+    yaxis=dict(autorange='reversed', gridcolor="#F3F4F6"),
 )
 st.plotly_chart(fig, use_container_width=True)
+
+spacer(8)
+
+# ── Scenario IRR Bar Comparison ──────────────────────────────────
+section_header("Scenario IRR Comparison", "Visual comparison of projected returns")
+
+fig_bar = go.Figure()
+
+# Compute for each scenario
+bar_names = list(scenarios.keys())
+bar_irrs = []
+bar_ems = []
+for name in bar_names:
+    p = scenarios[name]
+    irr_v, em_v, _, _, _ = project_returns(
+        p['exit_cap'], p['noi_growth'], p['hold'], p.get('sell_cost', 0.02),
+    )
+    bar_irrs.append(irr_v * 100)
+    bar_ems.append(em_v)
+
+# IRR bars
+bar_colors = [
+    COLORS["success"] if v > 10 else (COLORS["error"] if v < 0 else COLORS["accent"])
+    for v in bar_irrs
+]
+fig_bar.add_trace(go.Bar(
+    x=bar_names, y=bar_irrs,
+    marker_color=bar_colors, opacity=0.85,
+    text=[f"{v:.1f}%" for v in bar_irrs],
+    textposition='outside',
+    textfont=dict(size=12, color=COLORS["text"]),
+))
+
+# 10% target line
+fig_bar.add_hline(
+    y=10, line_dash="dash", line_color=COLORS["muted"],
+    annotation_text="10% target", annotation_font_size=10,
+    opacity=0.6,
+)
+
+fig_bar.update_layout(
+    **PLOTLY_LAYOUT,
+    height=360,
+    yaxis_title="IRR (%)",
+    showlegend=False,
+)
+st.plotly_chart(fig_bar, use_container_width=True)
+
+spacer(8)
+
+# ── Assumptions Summary ──────────────────────────────────────────
+with st.expander("Current Model Assumptions"):
+    ac1, ac2, ac3 = st.columns(3)
+    with ac1:
+        st.markdown(f"**T-12 NOI:** {fmt_currency(current_noi)}")
+        st.markdown(f"**T-12 NCF:** {fmt_currency(current_ncf)}")
+        st.markdown(f"**Purchase Price:** {fmt_currency(purchase_price)}")
+    with ac2:
+        st.markdown(f"**Exit Cap Rate:** {fmt_pct(base_exit_cap)}")
+        st.markdown(f"**Hold Period:** {base_hold} years")
+        st.markdown(f"**NOI Growth:** {fmt_pct(base_noi_growth)}/yr")
+    with ac3:
+        st.markdown(f"**Selling Costs:** {fmt_pct(base_sell_cost)}")
+        st.markdown(f"**Loan Balance:** {fmt_currency(loan_balance)}")
+        st.markdown(f"**Total Equity:** {fmt_currency(total_equity)}")

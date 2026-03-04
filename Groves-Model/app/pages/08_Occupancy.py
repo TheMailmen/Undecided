@@ -10,12 +10,19 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
+from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT
+from ui.components import page_header, section_header, spacer
+
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Occupancy & Rent Growth")
-st.caption("Physical occupancy, average rents, loss-to-lease, and renovation ROI.")
+inject_theme()
+
+page_header(
+    "Occupancy & Rent Growth",
+    "Physical occupancy, average rents, loss-to-lease, and renovation ROI",
+)
 
 # ── Data loading ──────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')

@@ -1,18 +1,25 @@
 """Upload Data — CSV file upload with validation and preview."""
 
 import os
+import sys
 
 import pandas as pd
 import streamlit as st
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from ui.theme import inject_theme
+from ui.components import page_header
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Upload CSV Data")
-st.caption(
-    "Upload updated CSV files to regenerate the model. "
-    "Files are saved to the `data/` directory."
+inject_theme()
+
+page_header(
+    "Upload CSV Data",
+    "Upload updated CSV files to regenerate the model",
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data')

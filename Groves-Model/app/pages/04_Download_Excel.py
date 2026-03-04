@@ -6,14 +6,22 @@ import sys
 
 import streamlit as st
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+from ui.theme import inject_theme
+from ui.components import page_header
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-st.title("Download Excel Model")
-st.caption("Generate the formatted Excel workbook with one click.")
+inject_theme()
+
+page_header(
+    "Download Excel Model",
+    "Generate the formatted Excel workbook with one click",
+)
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
 BUILD_SCRIPT = os.path.join(BASE_DIR, 'src', 'build.py')

@@ -11,20 +11,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import load_pl_data, get_monthly_series, get_t12_totals
 from config import CHART_OF_ACCOUNTS, TOTAL_EQUITY, PROPERTY, TIC, LOAN, VALUATION
+from ui.theme import inject_theme, COLORS
+from ui.components import page_header
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
     st.switch_page("streamlit_app.py")
 
-# ── Design tokens ──────────────────────────────────────────────────
-C_TITLE = "#0D1B2A"
-C_ACCENT = "#1B4F72"
-C_GREEN = "#1E8449"
-C_RED = "#C00000"
+inject_theme()
+
+# ── Design tokens (P&L-specific — kept for table rendering) ──────
+C_TITLE = COLORS["primary"]
+C_ACCENT = COLORS["accent"]
+C_GREEN = COLORS["success"]
+C_RED = COLORS["error"]
 C_SUBTOTAL = "#E8EAED"
-C_ALT = "#F7F9FC"
-C_NOTE_BG = "#E8F5E9"
-C_SECTION = "#1A2332"
+C_ALT = COLORS["row_alt"]
+C_NOTE_BG = "#E0F2FE"
+C_SECTION = COLORS["primary"]
 
 # ── Data loading ───────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
@@ -439,10 +443,10 @@ def render_distribution(months_list):
 
 
 # ── Page Layout ────────────────────────────────────────────────────
-st.markdown(
-    f'<h1 style="color:{C_TITLE};margin-bottom:0;">The Groves Apartments</h1>'
-    f'<p style="color:#7F8C8D;margin-top:4px;">Investor Model &mdash; P&L Viewer</p>',
-    unsafe_allow_html=True,
+page_header(
+    "P&L Viewer",
+    "Financial statements from acquisition to present",
+    right_text=f"{st.session_state.property['name']}",
 )
 
 # Get all months and T-12 months
