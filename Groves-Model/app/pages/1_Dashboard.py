@@ -53,16 +53,40 @@ df = load_data(
 )
 t12 = get_t12_totals(df)
 
+# ── Compute MoM deltas for KPI cards ─────────────────────────────
+all_months = sorted(df['Month'].unique())
+if len(all_months) >= 2:
+    last_m = all_months[-1]
+    prev_m = all_months[-2]
+
+    def _val(account, month):
+        row = df[(df['Account'] == account) & (df['Month'] == month)]
+        return row['Amount'].sum() if len(row) > 0 else 0
+
+    d_noi = _val('NET OPERATING INCOME (NOI)', last_m) - _val('NET OPERATING INCOME (NOI)', prev_m)
+    d_cfads = _val('CASH FLOW AFTER DEBT SERVICE', last_m) - _val('CASH FLOW AFTER DEBT SERVICE', prev_m)
+    d_egi = _val('EFFECTIVE GROSS INCOME (EGI)', last_m) - _val('EFFECTIVE GROSS INCOME (EGI)', prev_m)
+    d_opex = _val('Total Operating Expenses', last_m) - _val('Total Operating Expenses', prev_m)
+    d_dscr = _val('DSCR', last_m) - _val('DSCR', prev_m)
+else:
+    d_noi = d_cfads = d_egi = d_opex = d_dscr = None
+
 # ── KPI Cards ─────────────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("T12 NOI", f"${t12['NET OPERATING INCOME (NOI)']:,.0f}")
-col2.metric("T12 CFADS", f"${t12['CASH FLOW AFTER DEBT SERVICE']:,.0f}")
-col3.metric("DSCR", f"{t12['DSCR']:.2f}x")
+col1.metric("T12 NOI", f"${t12['NET OPERATING INCOME (NOI)']:,.0f}",
+            delta=f"${d_noi:,.0f} MoM" if d_noi is not None else None)
+col2.metric("T12 CFADS", f"${t12['CASH FLOW AFTER DEBT SERVICE']:,.0f}",
+            delta=f"${d_cfads:,.0f} MoM" if d_cfads is not None else None)
+col3.metric("DSCR", f"{t12['DSCR']:.2f}x",
+            delta=f"{d_dscr:.2f}" if d_dscr is not None else None)
 col4.metric("Cap Rate", f"{t12['Cap Rate'] * 100:.1f}%")
 
 col5, col6, col7, col8 = st.columns(4)
-col5.metric("T12 EGI", f"${t12['EFFECTIVE GROSS INCOME (EGI)']:,.0f}")
-col6.metric("T12 OpEx", f"${t12['Total Operating Expenses']:,.0f}")
+col5.metric("T12 EGI", f"${t12['EFFECTIVE GROSS INCOME (EGI)']:,.0f}",
+            delta=f"${d_egi:,.0f} MoM" if d_egi is not None else None)
+col6.metric("T12 OpEx", f"${t12['Total Operating Expenses']:,.0f}",
+            delta=f"${d_opex:,.0f} MoM" if d_opex is not None else None,
+            delta_color="inverse")
 col7.metric("Expense Ratio", f"{t12['Expense Ratio'] * 100:.1f}%")
 col8.metric("Cash-on-Cash", f"{t12['Cash-on-Cash (CFADS)'] * 100:.1f}%")
 

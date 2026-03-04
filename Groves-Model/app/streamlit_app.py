@@ -61,7 +61,14 @@ st.markdown(
     "- **Assumptions** — Edit model assumptions with live recalculation\n"
     "- **Upload Data** — Upload new CSV data files\n"
     "- **Download Excel** — Generate and download the formatted Excel model\n"
-    "- **P&L Viewer** — Clean tabbed P&L with Executive Summary, T-12, Full P&L, and Distribution Model"
+    "- **P&L Viewer** — Clean tabbed P&L with Executive Summary, T-12, Full P&L, and Distribution Model\n"
+    "- **Returns** — Projected IRR, equity multiple, and per-owner return analysis\n"
+    "- **Scenarios** — Sensitivity tables and what-if analysis\n"
+    "- **Occupancy** — Occupancy trends, rent growth, loss-to-lease, renovation ROI\n"
+    "- **Variance** — Budget vs actual comparison with waterfall\n"
+    "- **Investor Portal** — Per-investor distribution statements and equity recovery\n"
+    "- **Refi** — Refinance scenario comparison and rate sensitivity\n"
+    "- **PDF Report** — One-click investor report generation"
 )
 
 st.caption(
