@@ -134,10 +134,10 @@ CHART_OF_ACCOUNTS = [
     ('7020', 'Equipment/Tools',                        'line'),
     ('7030', 'Remodel',                                'line'),
     ('7060', 'Labor',                                  'line'),
-    ('7070', 'Flooring',                               'line'),
+    ('7070', 'CapEx Flooring',                               'line'),
     ('7080', 'Hardware',                               'line'),
     ('7090', 'Cabinets',                               'line'),
-    ('7100', 'Supplies',                               'line'),
+    ('7100', 'CapEx Supplies',                               'line'),
     ('7110', 'Paint',                                  'line'),
     (None,   'Total Capital Expenditures',             'subtotal'),
     (None,   None,                                     'spacer'),
@@ -170,7 +170,7 @@ SUBTOTAL_FORMULAS = {
     'CASH FLOW AFTER DEBT SERVICE': ['NET OPERATING INCOME (NOI)', '-Total Debt Service'],
     'Total Capital Expenditures': [
         'Appliances', 'Equipment/Tools', 'Remodel', 'Labor',
-        'Flooring', 'Hardware', 'Cabinets', 'Supplies', 'Paint',
+        'CapEx Flooring', 'Hardware', 'Cabinets', 'CapEx Supplies', 'Paint',
     ],
     'NET CASH FLOW': ['CASH FLOW AFTER DEBT SERVICE', '-Total Capital Expenditures'],
 }
