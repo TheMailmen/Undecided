@@ -74,7 +74,7 @@ if 'budget' not in st.session_state:
         'management_fee_pct': 0.04,
         'other_opex': 80_000,
         'debt_service': 600_000,
-        'capex': 100_000,
+        'capex': st.session_state.capex_budget,
     }
 
 with st.expander("Edit Budget Assumptions", expanded=False):

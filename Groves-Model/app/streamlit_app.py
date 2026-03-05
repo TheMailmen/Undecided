@@ -25,7 +25,7 @@ def init_session_state():
     if 'initialized' not in st.session_state:
         from config import (
             PROPERTY, UNIT_MIX, LOAN, TIC, TOTAL_EQUITY,
-            VALUATION, ESCROW_NAMES, REFI,
+            VALUATION, ESCROW_NAMES, REFI, CAPEX_BUDGET,
         )
 
         st.session_state.property = dict(PROPERTY)
@@ -36,6 +36,7 @@ def init_session_state():
         st.session_state.valuation = dict(VALUATION)
         st.session_state.escrow_names = list(ESCROW_NAMES)
         st.session_state.refi = dict(REFI)
+        st.session_state.capex_budget = CAPEX_BUDGET
         st.session_state.data_version = 0
         st.session_state.initialized = True
 

@@ -106,6 +106,57 @@ kpi_row([
 
 spacer(8)
 
+# ── CapEx Plan Context ───────────────────────────────────────────
+capex_budget = st.session_state.capex_budget
+actual_capex = t12.get('Total Capital Expenditures', 0)
+capex_remaining = capex_budget - actual_capex
+capex_pct = actual_capex / capex_budget * 100 if capex_budget else 0
+
+# CFADS before CapEx vs after
+t12_cfads_total = t12['CASH FLOW AFTER DEBT SERVICE']
+capex_impact = actual_capex * pct
+
+section_header("Capital Expenditure Plan",
+               "Renovation spend is below-the-line — it reduces NCF distributions but builds long-term value")
+
+capex_c1, capex_c2 = st.columns(2)
+
+with capex_c1:
+    kpi_row([
+        {"label": "CapEx Budget", "value": fmt_currency(capex_budget)},
+        {"label": "Spent to Date", "value": fmt_currency(actual_capex),
+         "delta": f"{capex_pct:.0f}% of budget"},
+        {"label": "Remaining", "value": fmt_currency(capex_remaining)},
+    ])
+
+with capex_c2:
+    kpi_row([
+        {"label": "Your CFADS (pre-CapEx)", "value": fmt_currency(t12_cfads)},
+        {"label": "CapEx Impact on Your Share", "value": fmt_currency(-capex_impact)},
+        {"label": "Your NCF (post-CapEx)", "value": fmt_currency(t12_ncf)},
+    ])
+
+# Progress bar
+bar_pct = min(capex_pct, 100)
+st.markdown(
+    f'<div style="background:{COLORS["surface"]};border:1px solid {COLORS["border"]};'
+    f'border-radius:8px;padding:12px 16px;margin:0 0 8px 0;">'
+    f'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+    f'<span style="font-size:0.78rem;font-weight:600;color:{COLORS["text"]};">Renovation Progress</span>'
+    f'<span style="font-size:0.78rem;color:{COLORS["muted"]};">{fmt_currency(actual_capex)} / {fmt_currency(capex_budget)}</span>'
+    f'</div>'
+    f'<div style="background:{COLORS["border"]};border-radius:4px;height:10px;overflow:hidden;">'
+    f'<div style="background:{COLORS["accent"]};width:{bar_pct:.0f}%;height:100%;border-radius:4px;"></div>'
+    f'</div>'
+    f'<p style="margin:6px 0 0 0;font-size:0.76rem;color:{COLORS["muted"]};">'
+    f'CapEx is invested in unit renovations that drive rent growth and property value — '
+    f'distributions will increase as the renovation plan completes.</p>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
+
+spacer(8)
+
 # ── Chart 1: Monthly Distribution Timeline ───────────────────────
 section_header(f"Monthly Distribution \u2014 {selected_owner}")
 

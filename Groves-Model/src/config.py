@@ -37,6 +37,8 @@ TIC = {
 
 TOTAL_EQUITY = 4_540_000
 
+CAPEX_BUDGET = 500_000  # Total CapEx allocation for renovation plan
+
 VALUATION = {
     'bov_low': 14_700_000,
     'bov_mid': 15_000_000,

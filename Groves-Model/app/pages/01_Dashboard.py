@@ -153,8 +153,31 @@ fig_wf = go.Figure(go.Waterfall(
     decreasing=dict(marker=dict(color=COLORS["error"])),
     totals=dict(marker=dict(color=COLORS["primary"])),
 ))
+capex_budget = st.session_state.capex_budget
+actual_capex = t12.get('Total Capital Expenditures', 0)
+capex_remaining = capex_budget - actual_capex
+
+fig_wf.add_annotation(
+    x='CapEx', y=-actual_capex / 2,
+    text=f"${actual_capex:,.0f} of ${capex_budget:,.0f} budget",
+    showarrow=False,
+    font=dict(size=10, color=COLORS["muted"]),
+    yshift=-30,
+)
 fig_wf.update_layout(**PLOTLY_LAYOUT, height=400)
 st.plotly_chart(fig_wf, use_container_width=True)
+
+st.markdown(
+    f'<div style="background:{COLORS["note_bg"]};border:1px solid {COLORS["border"]};'
+    f'border-radius:8px;padding:12px 16px;margin:-8px 0 16px 0;font-size:0.84rem;">'
+    f'<b style="color:{COLORS["primary"]};">CapEx Plan:</b> '
+    f'<b>{fmt_currency(capex_budget)}</b> allocated for renovations &mdash; '
+    f'<b>{fmt_currency(actual_capex)}</b> spent to date '
+    f'({actual_capex/capex_budget*100:.0f}%), '
+    f'<b>{fmt_currency(capex_remaining)}</b> remaining'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 # ── Charts 3 & 4: Side by Side ───────────────────────────────────
 left_col, right_col = st.columns(2)
