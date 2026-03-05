@@ -83,7 +83,7 @@ kpi_row([
      "delta": f"{(latest_occ - prev_occ) * 100:.1f}pp" if latest_occ != prev_occ else None},
     {"label": "Avg In-Place Rent", "value": f"${latest_avg:,.0f}",
      "delta": f"${latest_avg - prev_avg:,.0f}" if latest_avg != prev_avg else None},
-    {"label": "Vacant Units", "value": f"{UNITS - occupied_counts[-1]}"},
+    {"label": "Vacant Units", "value": f"{UNITS - occupied_counts[-1]}" if occupied_counts else "N/A"},
     {"label": "Rent Growth (Since Acq.)", "value": f"{rent_growth_total * 100:.1f}%"},
 ])
 
@@ -216,7 +216,7 @@ with right_abs:
 # Turnover summary KPIs
 total_move_ins = sum(move_ins)
 total_move_outs = sum(move_outs)
-turnover_rate = total_move_outs / UNITS * 100
+turnover_rate = total_move_outs / UNITS * 100 if UNITS else 0
 
 kpi_row([
     {"label": "Total Move-Ins", "value": str(total_move_ins)},
@@ -244,7 +244,8 @@ selected_bldg = st.selectbox(
 if selected_bldg == "All Buildings":
     display_matrix = occ_binary
 else:
-    prefix = [b for b, lbl in bldg_labels_map.items() if lbl == selected_bldg][0]
+    matches = [b for b, lbl in bldg_labels_map.items() if lbl == selected_bldg]
+    prefix = matches[0] if matches else building_ids[0]
     display_matrix = occ_binary[occ_binary.index.str.startswith(prefix + '-')]
 
 # Custom hover text showing rent or "Vacant"
@@ -270,11 +271,9 @@ fig_heat = go.Figure(data=go.Heatmap(
     hovertemplate='%{text}<extra></extra>',
     xgap=1, ygap=1,
 ))
-fig_heat.update_layout(
-    **PLOTLY_LAYOUT,
-    height=max(400, len(display_matrix) * 14),
-    yaxis=dict(dtick=1, autorange='reversed', gridcolor=COLORS["grid"]),
-)
+heat_layout = {**PLOTLY_LAYOUT}
+heat_layout['yaxis'] = dict(dtick=1, autorange='reversed', gridcolor=COLORS["grid"])
+fig_heat.update_layout(**heat_layout, height=max(400, len(display_matrix) * 14))
 st.plotly_chart(fig_heat, use_container_width=True)
 
 spacer(8)
@@ -290,9 +289,10 @@ fig_rent.add_trace(go.Bar(
 
 # Add market rent lines
 unit_mix = st.session_state.unit_mix
+total_unit_count = sum(v['count'] for v in unit_mix.values())
 weighted_market = sum(
     v['market_rent'] * v['count'] for v in unit_mix.values()
-) / sum(v['count'] for v in unit_mix.values())
+) / total_unit_count if total_unit_count else 0
 
 fig_rent.add_hline(
     y=weighted_market, line_dash="dash", line_color=COLORS["error"],
@@ -380,7 +380,7 @@ ltl_df['Condition'] = ltl_df['Condition'].fillna('Classic')
 # Only occupied units
 occupied = ltl_df[ltl_df['CurrentRent'] > 0].copy()
 occupied['LTL'] = occupied['MktRent'] - occupied['CurrentRent']
-occupied['LTL_Pct'] = occupied['LTL'] / occupied['MktRent']
+occupied['LTL_Pct'] = occupied['LTL'] / occupied['MktRent'].replace(0, float('nan'))
 occupied = occupied.sort_values('LTL', ascending=False)
 
 # Summary metrics

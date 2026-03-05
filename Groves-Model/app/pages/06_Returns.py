@@ -59,6 +59,9 @@ def compute_irr(cashflows, guess=0.10, tol=1e-8, max_iter=200):
     """Compute IRR using Newton's method."""
     rate = guess
     for _ in range(max_iter):
+        if abs(1 + rate) < 1e-14:
+            rate += 0.01
+            continue
         npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cashflows))
         dnpv = sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cashflows))
         if abs(dnpv) < 1e-14:

@@ -60,6 +60,9 @@ loan_balance = st.session_state.loan['est_current_balance']
 def compute_irr(cashflows, guess=0.10, tol=1e-8, max_iter=200):
     rate = guess
     for _ in range(max_iter):
+        if abs(1 + rate) < 1e-14:
+            rate += 0.01
+            continue
         npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cashflows))
         dnpv = sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cashflows))
         if abs(dnpv) < 1e-14:
@@ -437,13 +440,9 @@ fig = go.Figure(data=go.Heatmap(
         tickformat=",",
     ),
 ))
-fig.update_layout(
-    **PLOTLY_LAYOUT,
-    height=420,
-    xaxis_title="Annual NOI Growth",
-    yaxis_title="Exit Cap Rate",
-    yaxis=dict(autorange='reversed', gridcolor=COLORS["grid"]),
-)
+heatmap_layout = {**PLOTLY_LAYOUT}
+heatmap_layout['yaxis'] = dict(autorange='reversed', gridcolor=COLORS["grid"])
+fig.update_layout(**heatmap_layout, height=420, xaxis_title="Annual NOI Growth", yaxis_title="Exit Cap Rate")
 st.plotly_chart(fig, use_container_width=True)
 
 spacer(8)

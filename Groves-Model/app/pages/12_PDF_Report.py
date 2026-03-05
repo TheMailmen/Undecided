@@ -55,6 +55,8 @@ t12 = get_t12_totals(df)
 
 
 def _fmt(v):
+    if v is None or v == 0:
+        return "$0"
     if v < 0:
         return f"(${abs(v):,.0f})"
     return f"${v:,.0f}"

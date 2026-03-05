@@ -128,12 +128,9 @@ fig.add_trace(go.Scatter(
 # Zero line
 fig.add_hline(y=0, line_dash="dot", line_color=COLORS["muted"], opacity=0.3)
 
-fig.update_layout(
-    **PLOTLY_LAYOUT,
-    height=400,
-    yaxis=dict(title="Monthly ($)", gridcolor=COLORS["grid"]),
-    yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right', gridcolor=COLORS["grid"]),
-)
+portal_layout = {**PLOTLY_LAYOUT}
+portal_layout['yaxis'] = dict(title="Monthly ($)", gridcolor=COLORS["grid"])
+fig.update_layout(**portal_layout, height=400, yaxis2=dict(title="Cumulative ($)", overlaying='y', side='right', gridcolor=COLORS["grid"]))
 st.plotly_chart(fig, use_container_width=True)
 
 spacer(8)
