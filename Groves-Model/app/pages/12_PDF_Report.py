@@ -51,7 +51,7 @@ df = load_data(
     st.session_state.data_version, PL_CSV,
     cfg['total_equity'], cfg['purchase_price'],
 )
-t12 = get_t12_totals(df)
+t12 = get_t12_totals(df, cfg)
 
 
 def _fmt(v):

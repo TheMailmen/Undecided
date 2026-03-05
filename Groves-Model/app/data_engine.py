@@ -117,8 +117,8 @@ def get_monthly_series(df: pd.DataFrame, account: str) -> pd.DataFrame:
     return subset.sort_values('Month').reset_index(drop=True)
 
 
-def get_t12_totals(df: pd.DataFrame) -> dict:
-    """Get trailing 12-month totals for key accounts and latest metrics."""
+def get_t12_totals(df: pd.DataFrame, cfg: dict = None) -> dict:
+    """Get trailing 12-month totals for key accounts and T-12 metrics."""
     last_12 = sorted(df['Month'].unique())[-12:]
     t12 = df[df['Month'].isin(last_12)]
 
@@ -135,11 +135,27 @@ def get_t12_totals(df: pd.DataFrame) -> dict:
         subset = t12[t12['Account'] == acct]
         result[acct] = subset['Amount'].sum()
 
-    # Metrics: use last month's value (not sum)
-    last_month = last_12[-1]
-    for metric in ['DSCR', 'Cap Rate', 'Expense Ratio', 'Cash-on-Cash (CFADS)', 'Cash-on-Cash (Ann.)']:
-        val = df[(df['Month'] == last_month) & (df['Account'] == metric)]['Amount']
-        result[metric] = val.values[0] if len(val) > 0 else 0
+    # Metrics: compute from T-12 totals (not a single month snapshot)
+    noi = result.get('NET OPERATING INCOME (NOI)', 0)
+    ds = result.get('Total Debt Service', 0)
+    egi = result.get('EFFECTIVE GROSS INCOME (EGI)', 0)
+    opex = result.get('Total Operating Expenses', 0)
+    cfads = result.get('CASH FLOW AFTER DEBT SERVICE', 0)
+    ncf = result.get('NET CASH FLOW', 0)
+
+    result['DSCR'] = noi / ds if ds != 0 else 0
+    result['Expense Ratio'] = opex / egi if egi != 0 else 0
+
+    if cfg:
+        equity = cfg.get('total_equity', 0)
+        pp = cfg.get('purchase_price', 0)
+        result['Cap Rate'] = noi / pp if pp != 0 else 0
+        result['Cash-on-Cash (CFADS)'] = cfads / equity if equity != 0 else 0
+        result['Cash-on-Cash (Ann.)'] = ncf / equity if equity != 0 else 0
+    else:
+        result['Cap Rate'] = 0
+        result['Cash-on-Cash (CFADS)'] = 0
+        result['Cash-on-Cash (Ann.)'] = 0
 
     return result
 

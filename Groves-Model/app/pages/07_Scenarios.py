@@ -45,7 +45,10 @@ df = load_data(
     st.session_state.total_equity,
     st.session_state.property['purchase_price'],
 )
-t12 = get_t12_totals(df)
+t12 = get_t12_totals(df, {
+    'total_equity': st.session_state.total_equity,
+    'purchase_price': st.session_state.property['purchase_price'],
+})
 
 # ── Financial constants ──────────────────────────────────────────
 current_noi = t12['NET OPERATING INCOME (NOI)']

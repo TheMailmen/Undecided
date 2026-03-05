@@ -55,7 +55,7 @@ df = load_data(
     cfg['total_equity'],
     cfg['purchase_price'],
 )
-t12 = get_t12_totals(df)
+t12 = get_t12_totals(df, cfg)
 
 # ── Data freshness ────────────────────────────────────────────
 latest_month = sorted(df['Month'].unique())[-1]

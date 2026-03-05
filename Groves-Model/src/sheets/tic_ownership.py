@@ -1,5 +1,6 @@
 # src/sheets/tic_ownership.py — TIC ownership allocation
 import sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from design import (apply_title, apply_hdr, apply_section, apply_subtotal,
                      set_col_widths, hide_beyond, input_cell,
@@ -31,9 +32,22 @@ def build(wb, cfg):
     ac = f'qPL_Fact!$C$2:$C${n}'
     dt = f'qPL_Fact!$A$2:$A${n}'
 
-    # T-12 date range: Jan 2025 through Dec 2025
-    date_gte = '">="&DATE(2025,1,1)'
-    date_lte = '"<="&DATE(2025,12,1)'
+    # T-12 date range from actual data
+    qpl = wb['qPL_Fact']
+    months = set()
+    for r in range(2, n + 2):
+        v = qpl.cell(row=r, column=1).value
+        if v:
+            if isinstance(v, datetime):
+                months.add(v.strftime('%Y-%m-%d'))
+            else:
+                months.add(str(v))
+    months = sorted(months)
+    t12_months = months[-12:]
+    t12_start = datetime.strptime(t12_months[0], '%Y-%m-%d')
+    t12_end = datetime.strptime(t12_months[-1], '%Y-%m-%d')
+    date_gte = f'">="&DATE({t12_start.year},{t12_start.month},1)'
+    date_lte = f'"<="&DATE({t12_end.year},{t12_end.month},1)'
 
     # T-12 NOI formula (used in col E)
     noi_formula = f'SUMIFS({sr},{ac},"NET OPERATING INCOME (NOI)",{dt},{date_gte},{dt},{date_lte})'

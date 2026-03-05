@@ -1,5 +1,6 @@
 # src/sheets/exec_summary.py — Executive Summary with KPIs
 import sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from design import (apply_title, apply_hdr, apply_section, apply_subtotal,
                      set_col_widths, hide_beyond,
@@ -22,8 +23,23 @@ def build(wb, cfg):
     sr = f'qPL_Fact!$D$2:$D${n}'
     ac = f'qPL_Fact!$C$2:$C${n}'
     dtr = f'qPL_Fact!$A$2:$A${n}'
-    date_gte = '">="&DATE(2025,1,1)'
-    date_lte = '"<="&DATE(2025,12,1)'
+
+    # Derive T-12 date range from actual data
+    qpl = wb['qPL_Fact']
+    months = set()
+    for r in range(2, n + 2):
+        v = qpl.cell(row=r, column=1).value
+        if v:
+            if isinstance(v, datetime):
+                months.add(v.strftime('%Y-%m-%d'))
+            else:
+                months.add(str(v))
+    months = sorted(months)
+    t12_months = months[-12:]
+    t12_start = datetime.strptime(t12_months[0], '%Y-%m-%d')
+    t12_end = datetime.strptime(t12_months[-1], '%Y-%m-%d')
+    date_gte = f'">="&DATE({t12_start.year},{t12_start.month},1)'
+    date_lte = f'"<="&DATE({t12_end.year},{t12_end.month},1)'
 
     def t12_sumifs(account):
         return f'SUMIFS({sr},{ac},"{account}",{dtr},{date_gte},{dtr},{date_lte})'

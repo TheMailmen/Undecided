@@ -471,7 +471,7 @@ page_header(
 # Get all months and T-12 months
 all_months = sorted(df['Month'].unique())
 t12_months = all_months[-12:]
-t12 = get_t12_totals(df)
+t12 = get_t12_totals(df, cfg)
 
 # Format month strings for pivot
 all_month_strs = [m.strftime('%Y-%m-%d') if hasattr(m, 'strftime') else str(m) for m in all_months]

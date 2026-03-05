@@ -1,5 +1,6 @@
 # src/sheets/refi_stress.py — Refinance stress test
 import sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from design import (apply_title, apply_hdr, apply_section, apply_subtotal,
                      set_col_widths, hide_beyond, input_cell,
@@ -23,8 +24,22 @@ def build(wb, cfg):
     sr = f'qPL_Fact!$D$2:$D${n}'
     ac = f'qPL_Fact!$C$2:$C${n}'
     dtr = f'qPL_Fact!$A$2:$A${n}'
-    date_gte = '">="&DATE(2025,1,1)'
-    date_lte = '"<="&DATE(2025,12,1)'
+    # T-12 date range from actual data
+    qpl = wb['qPL_Fact']
+    _months = set()
+    for _r in range(2, n + 2):
+        v = qpl.cell(row=_r, column=1).value
+        if v:
+            if isinstance(v, datetime):
+                _months.add(v.strftime('%Y-%m-%d'))
+            else:
+                _months.add(str(v))
+    _months = sorted(_months)
+    _t12 = _months[-12:]
+    _t12s = datetime.strptime(_t12[0], '%Y-%m-%d')
+    _t12e = datetime.strptime(_t12[-1], '%Y-%m-%d')
+    date_gte = f'">="&DATE({_t12s.year},{_t12s.month},1)'
+    date_lte = f'"<="&DATE({_t12e.year},{_t12e.month},1)'
 
     noi_f = f'SUMIFS({sr},{ac},"NET OPERATING INCOME (NOI)",{dtr},{date_gte},{dtr},{date_lte})'
 
