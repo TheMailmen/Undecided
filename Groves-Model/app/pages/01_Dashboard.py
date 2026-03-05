@@ -174,12 +174,10 @@ with left_col:
         exp_df, x='Amount', y='Account', orientation='h',
         color_discrete_sequence=[COLORS["accent"]],
     )
-    fig_exp.update_layout(
-        **PLOTLY_LAYOUT,
-        height=400,
-        margin=dict(l=180, r=10, t=36, b=0),
-        yaxis=dict(autorange='reversed', gridcolor=COLORS["grid"]),
-    )
+    exp_layout = {**PLOTLY_LAYOUT}
+    exp_layout['margin'] = dict(l=180, r=10, t=36, b=0)
+    exp_layout['yaxis'] = dict(autorange='reversed', gridcolor=COLORS["grid"])
+    fig_exp.update_layout(**exp_layout, height=400)
     st.plotly_chart(fig_exp, use_container_width=True)
 
 with right_col:
