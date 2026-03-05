@@ -161,7 +161,7 @@ left_col, right_col = st.columns(2)
 
 with left_col:
     section_header("T-12 Expense Breakdown")
-    exp_df = get_expense_breakdown(df)
+    exp_df = get_expense_breakdown(df, pl_csv_path=PL_CSV)
     if len(exp_df) > 10:
         top10 = exp_df.head(10)
         other = pd.DataFrame([{
@@ -177,6 +177,7 @@ with left_col:
     fig_exp.update_layout(
         **PLOTLY_LAYOUT,
         height=400,
+        margin=dict(l=180, r=10, t=36, b=0),
         yaxis=dict(autorange='reversed', gridcolor=COLORS["grid"]),
     )
     st.plotly_chart(fig_exp, use_container_width=True)

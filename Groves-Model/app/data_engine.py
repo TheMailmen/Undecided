@@ -32,6 +32,22 @@ def _get_opex_lines():
     return opex_lines
 
 
+def _get_opex_gl_codes():
+    """Extract GL codes for operating expense line items."""
+    gl_codes = set()
+    in_opex = False
+    for gl, acct, rtype in CHART_OF_ACCOUNTS:
+        if acct == 'OPERATING EXPENSES':
+            in_opex = True
+            continue
+        if acct == 'Total Operating Expenses':
+            in_opex = False
+            continue
+        if in_opex and rtype == 'line' and gl:
+            gl_codes.add(gl)
+    return gl_codes
+
+
 def load_pl_data(pl_csv_path: str, cfg: dict) -> pd.DataFrame:
     """Read P&L actuals and compute all subtotals and metrics.
 
@@ -128,11 +144,39 @@ def get_t12_totals(df: pd.DataFrame) -> dict:
     return result
 
 
-def get_expense_breakdown(df: pd.DataFrame) -> pd.DataFrame:
-    """Get T12 expense breakdown for charts."""
-    opex_lines = _get_opex_lines()
+def get_expense_breakdown(df: pd.DataFrame, pl_csv_path: str = None) -> pd.DataFrame:
+    """Get T12 expense breakdown for charts.
+
+    Uses GL codes to distinguish OpEx from CapEx for accounts with
+    duplicate names (e.g. 'Supplies', 'Flooring').
+    """
+    opex_gl_codes = _get_opex_gl_codes()
+    opex_names = set(_get_opex_lines())
     last_12 = sorted(df['Month'].unique())[-12:]
-    t12 = df[(df['Month'].isin(last_12)) & (df['Account'].isin(opex_lines))]
+
+    # If we have the CSV path, read with GL codes for accurate filtering
+    if pl_csv_path and os.path.exists(pl_csv_path):
+        totals = {}
+        last_12_str = {m.strftime('%Y-%m-%d') for m in last_12}
+        with open(pl_csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                month = row['Month'].strip()
+                gl = row['GL'].strip() if row.get('GL') else ''
+                account = row['Account'].strip()
+                amount = float(row['Amount']) if row['Amount'] else 0
+                if month in last_12_str and account in opex_names and gl in opex_gl_codes:
+                    totals[account] = totals.get(account, 0) + amount
+        breakdown = pd.DataFrame([
+            {'Account': acct, 'Amount': amt}
+            for acct, amt in totals.items()
+        ])
+        if len(breakdown) == 0:
+            return breakdown
+        return breakdown.sort_values('Amount', ascending=False).reset_index(drop=True)
+
+    # Fallback: use DataFrame filtering (may include CapEx for shared names)
+    t12 = df[(df['Month'].isin(last_12)) & (df['Account'].isin(opex_names))]
     breakdown = t12.groupby('Account')['Amount'].sum().sort_values(ascending=False)
     return breakdown.reset_index()
 
