@@ -14,7 +14,7 @@ from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, HEATMAP_COLORSCALE, fmt_currency, fmt_pct, fmt_multiple
 from ui.components import (
     page_header, kpi_row, section_header, sensitivity_matrix, spacer, badge,
-    styled_table, no_data_page,
+    styled_table, no_data_page, page_footer,
 )
 
 # ── Init ──────────────────────────────────────────────────────────
@@ -510,3 +510,5 @@ with st.expander("Current Model Assumptions"):
         st.markdown(f"**Selling Costs:** {fmt_pct(base_sell_cost)}")
         st.markdown(f"**Loan Balance:** {fmt_currency(loan_balance)}")
         st.markdown(f"**Total Equity:** {fmt_currency(total_equity)}")
+
+page_footer()

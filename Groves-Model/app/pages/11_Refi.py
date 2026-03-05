@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page
+from ui.components import page_header, kpi_row, section_header, spacer, styled_table, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -253,3 +253,5 @@ for i, ltv in enumerate(ltvs):
     ])
 
 styled_table(headers, tbl_rows, col_align=col_align, highlight_rows=highlight)
+
+page_footer()

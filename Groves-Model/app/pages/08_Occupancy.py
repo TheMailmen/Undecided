@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from ui.theme import inject_theme, COLORS, PLOTLY_LAYOUT, PLOTLY_COLORS
-from ui.components import page_header, kpi_row, section_header, spacer, no_data_page
+from ui.components import page_header, kpi_row, section_header, spacer, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -457,3 +457,5 @@ if os.path.exists(UI_CSV):
                 yaxis_title="$/Month",
             )
             st.plotly_chart(fig_reno, use_container_width=True)
+
+page_footer()

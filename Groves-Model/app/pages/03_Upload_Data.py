@@ -9,7 +9,7 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from ui.theme import inject_theme, COLORS
-from ui.components import page_header, section_header, spacer, badge, file_status_card
+from ui.components import page_header, section_header, spacer, badge, file_status_card, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -143,3 +143,5 @@ for filename, info in CSV_FILES.items():
                     st.session_state.data_version = st.session_state.get('data_version', 0) + 1
             except Exception as e:
                 st.error(f"Error reading file: {e}")
+
+page_footer()

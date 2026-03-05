@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from data_engine import get_t12_totals, load_pl_data
 from ui.theme import inject_theme
-from ui.components import page_header, no_data_page
+from ui.components import page_header, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -331,3 +331,5 @@ if 'pdf_bytes' in st.session_state:
         use_container_width=True,
     )
     st.caption(f"File size: {len(st.session_state.pdf_bytes):,} bytes")
+
+page_footer()

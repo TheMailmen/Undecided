@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from data_engine import load_pl_data, get_monthly_series, get_t12_totals
 from config import CHART_OF_ACCOUNTS, TOTAL_EQUITY, PROPERTY, TIC, LOAN, VALUATION
 from ui.theme import inject_theme, COLORS
-from ui.components import page_header, no_data_page
+from ui.components import page_header, no_data_page, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -497,3 +497,5 @@ with tab_full:
 with tab_dist:
     st.caption("Monthly cash flow waterfall from NOI to owner distributions.")
     st.markdown(render_distribution(t12_month_strs), unsafe_allow_html=True)
+
+page_footer()

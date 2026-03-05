@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from ui.theme import inject_theme, COLORS, fmt_currency, fmt_pct
-from ui.components import page_header, kpi_row, section_header, spacer, badge
+from ui.components import page_header, kpi_row, section_header, spacer, badge, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -273,3 +273,5 @@ with col_reset:
                 del st.session_state[key]
         st.session_state.data_version = st.session_state.get('data_version', 0) + 1
         st.rerun()
+
+page_footer()

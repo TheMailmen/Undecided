@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from ui.theme import inject_theme, COLORS, fmt_currency
-from ui.components import page_header, section_header, spacer, badge, kpi_row, styled_table
+from ui.components import page_header, section_header, spacer, badge, kpi_row, styled_table, page_footer
 
 # Ensure session state is initialized
 if 'initialized' not in st.session_state:
@@ -147,3 +147,5 @@ if os.path.exists(OUTPUT_PATH):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
+
+page_footer()
