@@ -310,24 +310,19 @@ class InvestorReport(FPDF):
                     w, bold=is_green, fill=fill_color,
                 )
 
-    # -- Page 2: Operations & Distributions --
+    # -- Page 2: Occupancy Deep Dive --
 
     def build_page2(self, charts):
         self.add_page()
         d = self.data
-
-        # Monthly NOI trend chart
-        if 'noi_trend' in charts:
-            self.image(charts['noi_trend'], x=10, w=self.w - 20)
-            self.ln(3)
+        rr = d['rent_roll']
 
         # Occupancy chart
         if 'occupancy' in charts:
             self.image(charts['occupancy'], x=10, w=self.w - 20)
             self.ln(3)
 
-        # Rent roll summary
-        rr = d['rent_roll']
+        # Occupancy summary KPIs
         self.section_bar('OCCUPANCY & RENT ROLL')
         _kv_grid(self, [
             ('Total Units', str(rr['total_units']), 'Occupied', str(rr['occupied'])),
@@ -335,6 +330,90 @@ class InvestorReport(FPDF):
             ('Total Rent', _dollar(rr['total_rent']), 'Avg Rent', _dollar(rr['avg_rent'])),
         ])
         self.ln(3)
+
+        # Unit mix table
+        unit_mix = rr.get('unit_mix', [])
+        if unit_mix:
+            self.ensure_space(30)
+            self.section_bar('UNIT MIX BREAKDOWN')
+            mw = [35, 20, 20, 20, 25, 25, 25]
+            self.table_header(
+                ['Type', 'Units', 'Occupied', 'Vacant', 'Occupancy', 'Avg Rent', 'Avg Market'],
+                mw,
+            )
+            for i, mix in enumerate(unit_mix):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                self.table_row(
+                    [mix['type'], str(mix['units']), str(mix['occupied']),
+                     str(mix['vacant']), _pct(mix['occupancy'], 1),
+                     _dollar(mix['avg_rent']), _dollar(mix['avg_market'])],
+                    mw, fill=fill,
+                )
+            # Totals row
+            tot_units = sum(m['units'] for m in unit_mix)
+            tot_occ = sum(m['occupied'] for m in unit_mix)
+            tot_vac = sum(m['vacant'] for m in unit_mix)
+            self.table_row(
+                ['Total', str(tot_units), str(tot_occ), str(tot_vac),
+                 _pct(rr['occupancy'], 1), _dollar(rr['avg_rent']), ''],
+                mw, bold=True, fill=(232, 245, 233),
+            )
+            self.ln(3)
+
+        # Condition mix (Renovated vs Classic)
+        condition_mix = rr.get('condition_mix', [])
+        if condition_mix:
+            self.ensure_space(30)
+            self.section_bar('RENOVATED vs CLASSIC')
+            cw = [40, 20, 20, 25, 30, 30]
+            self.table_header(
+                ['Condition', 'Units', 'Occupied', 'Occupancy', 'Avg Rent', 'Avg Market'],
+                cw,
+            )
+            for i, cond in enumerate(condition_mix):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                self.table_row(
+                    [cond['condition'], str(cond['units']), str(cond['occupied']),
+                     _pct(cond['occupancy'], 1),
+                     _dollar(cond['avg_rent']), _dollar(cond['avg_market'])],
+                    cw, fill=fill,
+                )
+            self.ln(3)
+
+        # Leasing activity & turnover
+        self.ensure_space(35)
+        self.section_bar('LEASING ACTIVITY & TURNOVER')
+        _kv_grid(self, [
+            ('Move-Ins (Q)', str(rr.get('q_move_ins', 0)),
+             'Move-Outs (Q)', str(rr.get('q_move_outs', 0))),
+            ('Ann. Turnover', _pct(rr.get('annualized_turnover', 0), 1),
+             'Loss-to-Lease/Mo', _dollar(rr.get('loss_to_lease_total', 0))),
+            ('Avg LTL/Unit', _dollar(rr.get('loss_to_lease_avg', 0)),
+             '', ''),
+        ])
+        self.ln(3)
+
+        # Rent growth
+        self.ensure_space(25)
+        self.section_bar('RENT GROWTH')
+        _kv_grid(self, [
+            ('Q Rent Growth', _pct(rr.get('rent_growth_q', 0), 1),
+             'Since Acquisition', _pct(rr.get('rent_growth_acq', 0), 1)),
+            ('Avg Rent (Acq)', _dollar(rr.get('avg_rent_start_acq', 0)),
+             'Avg Rent (Now)', _dollar(rr.get('avg_rent_end_acq', 0))),
+        ])
+        self.ln(3)
+
+    # -- Page 3: Cash Flow & Distributions --
+
+    def build_page3(self, charts):
+        self.add_page()
+        d = self.data
+
+        # Monthly NOI trend chart
+        if 'noi_trend' in charts:
+            self.image(charts['noi_trend'], x=10, w=self.w - 20)
+            self.ln(3)
 
         # Waterfall chart
         if 'waterfall' in charts:
@@ -448,5 +527,6 @@ def build_report(data, charts, out_path=None):
     pdf = InvestorReport(data)
     pdf.build_page1(charts)
     pdf.build_page2(charts)
+    pdf.build_page3(charts)
     pdf.output(out_path)
     return out_path

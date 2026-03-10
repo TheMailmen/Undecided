@@ -283,6 +283,7 @@ def load_report_data(report_quarter=None):
 
     # --- Rent roll (use last month of quarter) ---
     rr_path = _data_path('rent_roll.csv')
+    ui_path = _data_path('unit_improvements.csv')
     if os.path.exists(rr_path):
         rr = pd.read_csv(rr_path)
         month_cols = [c for c in rr.columns if c != 'Unit']
@@ -295,10 +296,116 @@ def load_report_data(report_quarter=None):
         total_rent = float(rr[rr_col].sum())
         avg_rent = _safe_div(total_rent, occupied)
 
+        # Occupancy trend (all months)
         occ_trend = []
         for col in month_cols:
             occ = _safe_div((rr[col] > 0).sum(), total_units)
             occ_trend.append(occ)
+
+        # --- Unit mix breakdown (merge rent roll with unit improvements) ---
+        unit_mix = []
+        loss_to_lease_total = 0
+        loss_to_lease_avg = 0
+        if os.path.exists(ui_path):
+            ui = pd.read_csv(ui_path)
+            merged = rr[['Unit', rr_col]].merge(
+                ui[['Unit', 'Mix', 'Condition', 'MktRent', 'LTL']],
+                on='Unit', how='left',
+            )
+            merged['MktRent'] = pd.to_numeric(merged['MktRent'], errors='coerce')
+            merged['LTL'] = pd.to_numeric(merged['LTL'], errors='coerce')
+
+            # Build per-mix summary
+            for mix_val, grp in merged.groupby('Mix'):
+                if pd.isna(mix_val):
+                    continue
+                mix_total = len(grp)
+                mix_occ = int((grp[rr_col] > 0).sum())
+                mix_vac = mix_total - mix_occ
+                occ_subset = grp[grp[rr_col] > 0]
+                mix_avg_rent = _safe_div(float(occ_subset[rr_col].sum()), mix_occ)
+                mix_avg_mkt = float(grp['MktRent'].mean()) if grp['MktRent'].notna().any() else 0
+                unit_mix.append({
+                    'type': mix_val,
+                    'units': mix_total,
+                    'occupied': mix_occ,
+                    'vacant': mix_vac,
+                    'occupancy': _safe_div(mix_occ, mix_total),
+                    'avg_rent': mix_avg_rent,
+                    'avg_market': mix_avg_mkt,
+                })
+
+            # Loss-to-lease (occupied units only)
+            occ_merged = merged[merged[rr_col] > 0].copy()
+            if occ_merged['MktRent'].notna().any():
+                ltl = occ_merged['MktRent'] - occ_merged[rr_col]
+                loss_to_lease_total = float(ltl.sum())
+                loss_to_lease_avg = float(ltl.mean())
+
+            # Condition breakdown (Renovated vs Classic)
+            condition_mix = []
+            for cond, grp in merged.groupby('Condition'):
+                if pd.isna(cond) or cond not in ('Renovated', 'Classic'):
+                    continue
+                cond_total = len(grp)
+                cond_occ = int((grp[rr_col] > 0).sum())
+                occ_sub = grp[grp[rr_col] > 0]
+                cond_avg_rent = _safe_div(float(occ_sub[rr_col].sum()), cond_occ)
+                cond_avg_mkt = float(grp['MktRent'].mean()) if grp['MktRent'].notna().any() else 0
+                condition_mix.append({
+                    'condition': cond,
+                    'units': cond_total,
+                    'occupied': cond_occ,
+                    'occupancy': _safe_div(cond_occ, cond_total),
+                    'avg_rent': cond_avg_rent,
+                    'avg_market': cond_avg_mkt,
+                })
+        else:
+            condition_mix = []
+
+        # --- Turnover & leasing activity (within the quarter) ---
+        q_move_outs = 0
+        q_move_ins = 0
+        for i in range(len(month_cols)):
+            if month_cols[i] not in q_months:
+                continue
+            if i == 0:
+                continue
+            prev_col = month_cols[i - 1]
+            cur_col = month_cols[i]
+            q_move_outs += int(((rr[prev_col] > 0) & (rr[cur_col] == 0)).sum())
+            q_move_ins += int(((rr[prev_col] == 0) & (rr[cur_col] > 0)).sum())
+
+        # Annualized turnover rate based on T-12 window
+        t12_move_outs = 0
+        for i in range(1, len(month_cols)):
+            prev_col = month_cols[i - 1]
+            cur_col = month_cols[i]
+            t12_move_outs += int(((rr[prev_col] > 0) & (rr[cur_col] == 0)).sum())
+        months_span = len(month_cols) - 1
+        annualized_turnover = _safe_div(t12_move_outs, months_span) * 12 / total_units if total_units else 0
+
+        # --- Rent growth (units occupied at both quarter start and end) ---
+        # Compare to 3 months prior (or first available)
+        q_start_idx = max(0, month_cols.index(rr_col) - 2) if rr_col in month_cols else 0
+        q_start_col = month_cols[q_start_idx]
+        both_occupied = rr[(rr[q_start_col] > 0) & (rr[rr_col] > 0)]
+        if len(both_occupied) > 0:
+            rent_start = float(both_occupied[q_start_col].mean())
+            rent_end = float(both_occupied[rr_col].mean())
+            rent_growth_pct = _safe_div(rent_end - rent_start, rent_start)
+        else:
+            rent_start, rent_end, rent_growth_pct = 0, 0, 0
+
+        # Since-acquisition rent growth
+        first_col = month_cols[0]
+        both_acq = rr[(rr[first_col] > 0) & (rr[rr_col] > 0)]
+        if len(both_acq) > 0:
+            acq_rent_start = float(both_acq[first_col].mean())
+            acq_rent_end = float(both_acq[rr_col].mean())
+            acq_rent_growth = _safe_div(acq_rent_end - acq_rent_start, acq_rent_start)
+        else:
+            acq_rent_start, acq_rent_end, acq_rent_growth = 0, 0, 0
 
         rent_roll = {
             'total_units': total_units,
@@ -309,6 +416,18 @@ def load_report_data(report_quarter=None):
             'avg_rent': avg_rent,
             'occ_trend_months': month_cols,
             'occ_trend': occ_trend,
+            # New detailed data
+            'unit_mix': unit_mix,
+            'condition_mix': condition_mix,
+            'loss_to_lease_total': loss_to_lease_total,
+            'loss_to_lease_avg': loss_to_lease_avg,
+            'q_move_outs': q_move_outs,
+            'q_move_ins': q_move_ins,
+            'annualized_turnover': annualized_turnover,
+            'rent_growth_q': rent_growth_pct,
+            'rent_growth_acq': acq_rent_growth,
+            'avg_rent_start_acq': acq_rent_start,
+            'avg_rent_end_acq': acq_rent_end,
         }
     else:
         rent_roll = {
@@ -316,6 +435,12 @@ def load_report_data(report_quarter=None):
             'occupied': 0, 'vacant': PROPERTY['units'],
             'occupancy': 0, 'total_rent': 0, 'avg_rent': 0,
             'occ_trend_months': [], 'occ_trend': [],
+            'unit_mix': [], 'condition_mix': [],
+            'loss_to_lease_total': 0, 'loss_to_lease_avg': 0,
+            'q_move_outs': 0, 'q_move_ins': 0,
+            'annualized_turnover': 0,
+            'rent_growth_q': 0, 'rent_growth_acq': 0,
+            'avg_rent_start_acq': 0, 'avg_rent_end_acq': 0,
         }
 
     # --- Unit improvements ---
