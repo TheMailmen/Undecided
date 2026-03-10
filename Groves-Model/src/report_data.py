@@ -3,6 +3,7 @@
 # values in Python since the output is static.
 
 import csv
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -13,8 +14,17 @@ from config import (
     VALUATION, SUBTOTAL_FORMULAS, CHART_OF_ACCOUNTS,
 )
 
+_BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+_DATA_DIR = os.path.join(_BASE_DIR, 'data')
 
-def _load_pl(path='data/pl_actuals.csv'):
+
+def _data_path(filename):
+    return os.path.join(_DATA_DIR, filename)
+
+
+def _load_pl(path=None):
+    if path is None:
+        path = _data_path('pl_actuals.csv')
     """Load P&L actuals into {(month_str, account): amount}."""
     raw = defaultdict(float)
     months = set()
@@ -153,7 +163,7 @@ def load_report_data(report_month=None):
     }
 
     # --- Rent roll ---
-    rr = pd.read_csv('data/rent_roll.csv')
+    rr = pd.read_csv(_data_path('rent_roll.csv'))
     month_cols = [c for c in rr.columns if c != 'Unit']
     # Find the column matching or closest to report_month
     rr_col = report_month if report_month in month_cols else month_cols[-1]
@@ -186,7 +196,7 @@ def load_report_data(report_month=None):
     }
 
     # --- Unit improvements ---
-    ui = pd.read_csv('data/unit_improvements.csv')
+    ui = pd.read_csv(_data_path('unit_improvements.csv'))
     renovated = len(ui[ui['Condition'] == 'Renovated'])
     total_reno = len(ui)
     avg_lift = 0
@@ -221,7 +231,7 @@ def load_report_data(report_month=None):
         }
 
     # --- Escrow ---
-    esc = pd.read_csv('data/escrow_activity.csv')
+    esc = pd.read_csv(_data_path('escrow_activity.csv'))
     escrow = {}
     for name in ['Real Estate Taxes', 'Property Insurance', 'Capital Reserves']:
         sub = esc[esc['EscrowName'] == name]
