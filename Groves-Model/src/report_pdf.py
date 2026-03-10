@@ -1,4 +1,4 @@
-# src/report_pdf.py -- Branded monthly investor report PDF
+# src/report_pdf.py -- Branded quarterly investor report PDF
 import os
 from datetime import datetime
 
@@ -44,6 +44,15 @@ def _x(v, decimals=2):
     return f'{v:.{decimals}f}x'
 
 
+def _delta_pct(cur, prior):
+    """Compute % change; return formatted string or '-'."""
+    if not prior or not cur:
+        return '-'
+    chg = (cur - prior) / abs(prior)
+    sign = '+' if chg >= 0 else ''
+    return f'{sign}{chg * 100:.1f}%'
+
+
 def _kv_grid(pdf, rows, lbl_w=30):
     """Render a 2-column key-value grid. rows: list of (lbl_l, val_l, lbl_r, val_r)."""
     col_w = (pdf.w - 20) / 2
@@ -65,7 +74,7 @@ def _kv_grid(pdf, rows, lbl_w=30):
 
 
 class InvestorReport(FPDF):
-    """Monthly investor report PDF."""
+    """Quarterly investor report PDF."""
 
     def __init__(self, data):
         super().__init__(orientation='P', unit='mm', format='Letter')
@@ -75,10 +84,9 @@ class InvestorReport(FPDF):
     @property
     def remaining(self):
         """Remaining vertical space before footer (mm)."""
-        return self.h - self.get_y() - 20  # 20mm bottom margin
+        return self.h - self.get_y() - 20
 
     def header(self):
-        # Navy header bar
         self.set_fill_color(*NAVY)
         self.rect(0, 0, self.w, 22, 'F')
 
@@ -90,10 +98,10 @@ class InvestorReport(FPDF):
         self.set_font('Helvetica', '', 8)
         self.set_text_color(174, 182, 191)
         self.set_xy(10, 13)
-        self.cell(0, 5, f"Monthly Investor Report  |  {self.data['report_label']}",
+        self.cell(0, 5,
+                  f"Quarterly Investor Report  |  {self.data['quarter_label']}",
                   align='L')
 
-        # Right side: prepared date
         self.set_xy(-70, 13)
         self.cell(60, 5, f"Prepared {datetime.now().strftime('%B %d, %Y')}",
                   align='R')
@@ -124,12 +132,10 @@ class InvestorReport(FPDF):
             x = 10 + i * card_w
             self.set_fill_color(*LIGHT_GRAY)
             self.rect(x, y_start, card_w - 3, 18, 'F')
-            # Value
             self.set_xy(x + 2, y_start + 2)
             self.set_font('Helvetica', 'B', 14)
             self.set_text_color(*color)
             self.cell(card_w - 7, 8, value, align='C')
-            # Label
             self.set_xy(x + 2, y_start + 10)
             self.set_font('Helvetica', '', 7)
             self.set_text_color(*GRAY)
@@ -174,8 +180,8 @@ class InvestorReport(FPDF):
 
         # KPI cards
         self.kpi_row([
-            ('Net Operating Income', _dollar(s['noi']), GREEN),
-            ('DSCR', _x(s['dscr']), STEEL),
+            ('Quarterly NOI', _dollar(s['noi']), GREEN),
+            ('Avg DSCR', _x(s['dscr']), STEEL),
             ('Occupancy', _pct(rr['occupancy'], 1), STEEL),
             ('Cash-on-Cash (Ann.)', _pct(s['coc'], 1), GOLD),
         ])
@@ -191,47 +197,129 @@ class InvestorReport(FPDF):
         ])
         self.ln(3)
 
-        # NOI trend chart
-        if 'noi_trend' in charts:
-            self.image(charts['noi_trend'], x=10, w=self.w - 20)
+        # Quarter-over-quarter performance chart
+        if 'quarterly_perf' in charts:
+            self.image(charts['quarterly_perf'], x=10, w=self.w - 20)
             self.ln(3)
 
-        # Financial snapshot table
-        self.section_bar(f"FINANCIAL SNAPSHOT - {d['report_label'].upper()}")
-        w = [70, 35, 35, 35]
-        self.table_header(['', 'Current Month', 'T-12 Total', '$/Unit (T-12)'], w)
+        # Financial snapshot: month-by-month + quarter total
+        self.section_bar(f"FINANCIAL SNAPSHOT - {d['quarter_label'].upper()}")
 
-        units = d['property']['units']
-        lines = [
-            ('Effective Rental Income', s['eri'], d['t12']['eri']),
-            ('Total Other Income', s['other_income'], d['t12']['other_income']),
-            ('Effective Gross Income', s['egi'], d['t12']['egi']),
-            ('Total Operating Expenses', s['opex'], d['t12']['opex']),
-            ('NET OPERATING INCOME', s['noi'], d['t12']['noi']),
-            ('Total Debt Service', s['debt_service'], d['t12']['debt_service']),
-            ('CASH FLOW AFTER DEBT', s['cfads'], d['t12']['cfads']),
-            ('Total CapEx', s['capex'], d['t12']['capex']),
-            ('NET CASH FLOW', s['ncf'], d['t12']['ncf']),
-        ]
+        md = d.get('month_detail', [])
+        prior = d.get('snapshot_prior', {})
 
-        green_rows = {'NET OPERATING INCOME', 'CASH FLOW AFTER DEBT', 'NET CASH FLOW'}
-        for i, (label, cur, t12v) in enumerate(lines):
-            is_green = label in green_rows
-            fill_color = (232, 245, 233) if is_green else (
-                LIGHT_GRAY if i % 2 == 0 else None)
-            self.set_font('Helvetica', 'B' if is_green else '', 8)
-            self.set_text_color(*(GREEN if is_green else BODY))
-            per_unit = t12v / units if units else 0
-            self.table_row(
-                [f'  {label}', _dollar(cur), _dollar(t12v), _dollar(per_unit)],
-                w, bold=is_green, fill=fill_color,
-            )
+        if md:
+            # Columns: Label | Month1 | Month2 | Month3 | Q Total | vs Prior Q
+            m_labels = [m['label'] for m in md]
+            col_w_label = 45
+            n_months = len(md)
+            col_w_month = 27
+            col_w_total = 30
+            col_w_delta = 25
+            w = [col_w_label] + [col_w_month] * n_months + [col_w_total, col_w_delta]
+            headers = [''] + m_labels + [d['quarter_label'], 'vs Prior Q']
+            self.table_header(headers, w)
+
+            units = d['property']['units']
+            lines = [
+                ('Eff. Rental Income', 'egi', None),
+                ('Operating Expenses', 'opex', None),
+                ('NET OPERATING INCOME', 'noi', 'noi'),
+                ('Total Debt Service', 'debt_service', None),
+                ('CASH FLOW AFTER DEBT', 'cfads', 'cfads'),
+                ('Total CapEx', None, None),
+                ('NET CASH FLOW', 'ncf', 'ncf'),
+            ]
+
+            green_rows = {'NET OPERATING INCOME', 'CASH FLOW AFTER DEBT', 'NET CASH FLOW'}
+            for i, (label, snap_key, prior_key) in enumerate(lines):
+                is_green = label in green_rows
+                fill_color = (232, 245, 233) if is_green else (
+                    LIGHT_GRAY if i % 2 == 0 else None)
+
+                # Get month values
+                month_vals = []
+                for m in md:
+                    # Map label to month_detail key
+                    key_map = {
+                        'Eff. Rental Income': 'egi',
+                        'Operating Expenses': 'opex',
+                        'NET OPERATING INCOME': 'noi',
+                        'Total Debt Service': 'debt_service',
+                        'CASH FLOW AFTER DEBT': 'cfads',
+                        'Total CapEx': 'ncf',  # placeholder
+                        'NET CASH FLOW': 'ncf',
+                    }
+                    if label == 'Total CapEx':
+                        # CapEx not in month_detail, use snapshot
+                        month_vals.append('')
+                    else:
+                        month_vals.append(_dollar(m.get(key_map.get(label, ''), 0)))
+
+                # Quarter total from snapshot
+                snap_map = {
+                    'Eff. Rental Income': 'egi',
+                    'Operating Expenses': 'opex',
+                    'NET OPERATING INCOME': 'noi',
+                    'Total Debt Service': 'debt_service',
+                    'CASH FLOW AFTER DEBT': 'cfads',
+                    'Total CapEx': 'capex',
+                    'NET CASH FLOW': 'ncf',
+                }
+                q_total = s.get(snap_map.get(label, ''), 0)
+
+                # Delta vs prior quarter
+                delta = '-'
+                if prior_key and prior.get(prior_key):
+                    delta = _delta_pct(q_total, prior[prior_key])
+
+                if label == 'Total CapEx':
+                    month_vals = [''] * n_months
+
+                row_data = [f'  {label}'] + month_vals + [_dollar(q_total), delta]
+
+                self.set_font('Helvetica', 'B' if is_green else '', 8)
+                self.set_text_color(*(GREEN if is_green else BODY))
+                self.table_row(row_data, w, bold=is_green, fill=fill_color)
+        else:
+            # Fallback: simple 3-column table
+            w = [70, 35, 35, 35]
+            self.table_header(['', 'Quarter Total', 'T-12 Total', '$/Unit (T-12)'], w)
+            units = d['property']['units']
+            lines = [
+                ('Effective Rental Income', s['eri'], d['t12']['eri']),
+                ('Total Other Income', s['other_income'], d['t12']['other_income']),
+                ('Effective Gross Income', s['egi'], d['t12']['egi']),
+                ('Total Operating Expenses', s['opex'], d['t12']['opex']),
+                ('NET OPERATING INCOME', s['noi'], d['t12']['noi']),
+                ('Total Debt Service', s['debt_service'], d['t12']['debt_service']),
+                ('CASH FLOW AFTER DEBT', s['cfads'], d['t12']['cfads']),
+                ('Total CapEx', s['capex'], d['t12']['capex']),
+                ('NET CASH FLOW', s['ncf'], d['t12']['ncf']),
+            ]
+            green_rows = {'NET OPERATING INCOME', 'CASH FLOW AFTER DEBT', 'NET CASH FLOW'}
+            for i, (label, cur, t12v) in enumerate(lines):
+                is_green = label in green_rows
+                fill_color = (232, 245, 233) if is_green else (
+                    LIGHT_GRAY if i % 2 == 0 else None)
+                per_unit = t12v / units if units else 0
+                self.set_font('Helvetica', 'B' if is_green else '', 8)
+                self.set_text_color(*(GREEN if is_green else BODY))
+                self.table_row(
+                    [f'  {label}', _dollar(cur), _dollar(t12v), _dollar(per_unit)],
+                    w, bold=is_green, fill=fill_color,
+                )
 
     # -- Page 2: Operations & Distributions --
 
     def build_page2(self, charts):
         self.add_page()
         d = self.data
+
+        # Monthly NOI trend chart
+        if 'noi_trend' in charts:
+            self.image(charts['noi_trend'], x=10, w=self.w - 20)
+            self.ln(3)
 
         # Occupancy chart
         if 'occupancy' in charts:
@@ -250,11 +338,13 @@ class InvestorReport(FPDF):
 
         # Waterfall chart
         if 'waterfall' in charts:
+            self.ensure_space(60)
             self.image(charts['waterfall'], x=10, w=self.w - 20)
             self.ln(3)
 
         # Renovation progress
         ren = d['renovations']
+        self.ensure_space(35)
         self.section_bar('RENOVATION PROGRESS')
         _kv_grid(self, [
             ('Units Completed', str(ren['completed']),
@@ -266,32 +356,32 @@ class InvestorReport(FPDF):
         ])
         self.ln(3)
 
-        # TIC distributions -- keep the whole table together
+        # TIC distributions
         num_owners = len(d['tic'])
-        table_h = 9 + 6 + (num_owners * 5.5) + 5  # bar + header + rows + spacing
+        table_h = 9 + 6 + (num_owners * 5.5) + 5
         self.ensure_space(table_h)
 
         self.section_bar('OWNER DISTRIBUTIONS')
-        tw = [55, 25, 30, 30, 30, 25]
+        tw = [50, 22, 28, 30, 30, 25]
         self.table_header(
-            ['Owner', 'Ownership %', 'Equity', 'Monthly Share', 'T-12 Share', 'CoC (Ann.)'],
+            ['Owner', 'Ownership %', 'Equity', 'Q Share', 'T-12 Share', 'CoC (Ann.)'],
             tw,
         )
         for i, (owner, info) in enumerate(d['tic'].items()):
             fill = LIGHT_GRAY if i % 2 == 0 else None
             self.table_row(
                 [owner, _pct(info['pct'], 2), _dollar(info['equity']),
-                 _dollar(info['monthly_share']), _dollar(info['t12_share']),
+                 _dollar(info['quarterly_share']), _dollar(info['t12_share']),
                  _pct(info['coc'], 1)],
                 tw, fill=fill,
             )
         self.ln(3)
 
-        # Escrow -- check if it fits on this page, otherwise new page
+        # Escrow
         self.ensure_space(55)
         self._build_escrow()
 
-        # Key metrics + valuation -- check space
+        # Key metrics + valuation
         self.ensure_space(60)
         self._build_metrics_and_valuation()
 
@@ -321,7 +411,7 @@ class InvestorReport(FPDF):
 
         self.section_bar('KEY METRICS')
         _kv_grid(self, [
-            ('DSCR', _x(s['dscr']), 'Cap Rate', _pct(s['cap_rate'], 2)),
+            ('DSCR (Avg)', _x(s['dscr']), 'Cap Rate', _pct(s['cap_rate'], 2)),
             ('Expense Ratio', _pct(s['expense_ratio'], 1),
              'Cash-on-Cash (Ann.)', _pct(s['coc'], 1)),
             ('BOV (Mid)', _dollar(d['valuation']['bov_mid']),
@@ -348,10 +438,12 @@ class InvestorReport(FPDF):
 
 
 def build_report(data, charts, out_path=None):
-    """Generate the investor report PDF."""
+    """Generate the quarterly investor report PDF."""
     if out_path is None:
-        month_str = data['report_date'].strftime('%Y-%m')
-        out_path = os.path.join('output', f'Groves_Investor_Report_{month_str}.pdf')
+        q_label = data['quarter_label'].replace(' ', '_')
+        out_path = os.path.join('output', f'Groves_Investor_Report_{q_label}.pdf')
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
 
     pdf = InvestorReport(data)
     pdf.build_page1(charts)

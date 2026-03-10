@@ -1,4 +1,4 @@
-# src/report_charts.py — Generate charts for the monthly investor PDF
+# src/report_charts.py -- Generate charts for the quarterly investor PDF
 import os
 import tempfile
 from datetime import datetime
@@ -17,13 +17,15 @@ GOLD = '#D4AC0D'
 GRAY = '#7F8C8D'
 LIGHT_GRAY = '#E8EAED'
 WHITE = '#FFFFFF'
-LIGHT_BLUE = '#F7F9FC'
 
 
 def _fmt_month(m):
     """'2025-01-01' -> 'Jan 25'"""
-    dt = datetime.strptime(m, '%Y-%m-%d')
-    return dt.strftime('%b %y')
+    try:
+        dt = datetime.strptime(m, '%Y-%m-%d')
+        return dt.strftime('%b %y')
+    except (ValueError, TypeError):
+        return str(m)
 
 
 def _dollar_fmt(x, _pos=None):
@@ -44,7 +46,7 @@ def _setup_ax(ax):
 
 
 def noi_trend_chart(data, path=None):
-    """NOI + EGI monthly trend with DSCR on secondary axis."""
+    """Monthly NOI + EGI trend with DSCR on secondary axis."""
     if path is None:
         path = os.path.join(tempfile.gettempdir(), 'noi_trend.png')
 
@@ -52,6 +54,9 @@ def noi_trend_chart(data, path=None):
     noi = data['trends']['noi']
     egi = data['trends']['egi']
     dscr = data['trends']['dscr']
+
+    if not months:
+        return None
 
     fig, ax1 = plt.subplots(figsize=(7.5, 3.0), dpi=150)
     fig.patch.set_facecolor(WHITE)
@@ -81,6 +86,49 @@ def noi_trend_chart(data, path=None):
     return path
 
 
+def quarterly_performance_chart(data, path=None):
+    """Quarterly NOI vs EGI bar chart showing quarter-over-quarter trend."""
+    if path is None:
+        path = os.path.join(tempfile.gettempdir(), 'quarterly_perf.png')
+
+    qt = data.get('quarterly_trends')
+    if not qt or not qt['labels']:
+        return None
+
+    labels = qt['labels']
+    noi = qt['noi']
+    egi = qt['egi']
+
+    x = range(len(labels))
+    bar_w = 0.35
+
+    fig, ax = plt.subplots(figsize=(7.5, 3.0), dpi=150)
+    fig.patch.set_facecolor(WHITE)
+    _setup_ax(ax)
+
+    bars_egi = ax.bar([i - bar_w / 2 for i in x], egi, bar_w,
+                      color=LIGHT_GRAY, label='EGI', zorder=2)
+    bars_noi = ax.bar([i + bar_w / 2 for i in x], noi, bar_w,
+                      color=STEEL, label='NOI', zorder=3)
+
+    # Value labels on NOI bars
+    for bar, val in zip(bars_noi, noi):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                _dollar_fmt(val), ha='center', va='bottom',
+                fontsize=7, color=NAVY, fontweight='bold')
+
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(_dollar_fmt))
+    ax.legend(fontsize=7, frameon=False)
+    plt.title('Quarterly NOI vs EGI', fontsize=10, color=NAVY,
+              fontweight='bold', pad=10)
+    plt.tight_layout()
+    plt.savefig(path, bbox_inches='tight', facecolor=WHITE)
+    plt.close()
+    return path
+
+
 def occupancy_chart(data, path=None):
     """Occupancy rate trend line."""
     if path is None:
@@ -88,6 +136,9 @@ def occupancy_chart(data, path=None):
 
     months_raw = data['rent_roll']['occ_trend_months']
     occ = data['rent_roll']['occ_trend']
+    if not months_raw:
+        return None
+
     # Only show last 12
     months_raw = months_raw[-12:]
     occ = occ[-12:]
@@ -100,7 +151,6 @@ def occupancy_chart(data, path=None):
     ax.fill_between(range(len(months)), occ, alpha=0.15, color=STEEL)
     ax.plot(months, occ, color=STEEL, marker='o', markersize=5, linewidth=2.5)
 
-    # Annotate each point
     for i, v in enumerate(occ):
         ax.annotate(f'{v:.1%}', (i, v), textcoords='offset points',
                     xytext=(0, 8), ha='center', fontsize=7, color=NAVY)
@@ -117,7 +167,8 @@ def occupancy_chart(data, path=None):
 
 
 def cashflow_waterfall(data, path=None):
-    """Waterfall chart: EGI -> OpEx -> NOI -> DS -> CFADS -> CapEx -> NCF."""
+    """Waterfall chart: EGI -> OpEx -> NOI -> DS -> CFADS -> CapEx -> NCF.
+    Uses quarterly totals."""
     if path is None:
         path = os.path.join(tempfile.gettempdir(), 'waterfall.png')
 
@@ -133,10 +184,9 @@ def cashflow_waterfall(data, path=None):
         s['ncf'],
     ]
 
-    # Waterfall: running sum with bottom offsets
     bottoms = []
     running = 0
-    totals = {0, 2, 4, 6}  # EGI, NOI, CFADS, NCF are absolute bars
+    totals = {0, 2, 4, 6}
     for i, v in enumerate(values):
         if i in totals:
             bottoms.append(0)
@@ -166,7 +216,8 @@ def cashflow_waterfall(data, path=None):
                 fontsize=7, color=NAVY, fontweight='bold')
 
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(_dollar_fmt))
-    plt.title('Cash Flow Waterfall (Current Month)', fontsize=10, color=NAVY,
+    q_label = data.get('quarter_label', 'Quarter')
+    plt.title(f'Cash Flow Waterfall - {q_label}', fontsize=10, color=NAVY,
               fontweight='bold', pad=10)
     plt.tight_layout()
     plt.savefig(path, bbox_inches='tight', facecolor=WHITE)
@@ -179,8 +230,22 @@ def generate_all_charts(data):
     chart_dir = os.path.join(tempfile.gettempdir(), 'groves_charts')
     os.makedirs(chart_dir, exist_ok=True)
 
-    return {
-        'noi_trend': noi_trend_chart(data, os.path.join(chart_dir, 'noi_trend.png')),
-        'occupancy': occupancy_chart(data, os.path.join(chart_dir, 'occupancy.png')),
-        'waterfall': cashflow_waterfall(data, os.path.join(chart_dir, 'waterfall.png')),
-    }
+    charts = {}
+
+    result = noi_trend_chart(data, os.path.join(chart_dir, 'noi_trend.png'))
+    if result:
+        charts['noi_trend'] = result
+
+    result = quarterly_performance_chart(data, os.path.join(chart_dir, 'quarterly_perf.png'))
+    if result:
+        charts['quarterly_perf'] = result
+
+    result = occupancy_chart(data, os.path.join(chart_dir, 'occupancy.png'))
+    if result:
+        charts['occupancy'] = result
+
+    result = cashflow_waterfall(data, os.path.join(chart_dir, 'waterfall.png'))
+    if result:
+        charts['waterfall'] = result
+
+    return charts

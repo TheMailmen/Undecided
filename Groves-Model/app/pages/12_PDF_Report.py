@@ -1,4 +1,4 @@
-"""PDF Report -- One-click investor report generation with charts."""
+"""PDF Report -- One-click quarterly investor report generation with charts."""
 
 import os
 import sys
@@ -21,7 +21,7 @@ if 'initialized' not in st.session_state:
 inject_theme()
 
 page_header(
-    "Investor Report (PDF)",
+    "Quarterly Investor Report (PDF)",
     "Generate a professional PDF summary for investors",
 )
 
@@ -63,7 +63,7 @@ def _fmt(v):
 
 
 def generate_pdf():
-    """Generate the branded investor report PDF with charts."""
+    """Generate the branded quarterly investor report PDF with charts."""
     from report_data import load_report_data
     from report_charts import generate_all_charts
     from report_pdf import build_report
@@ -85,26 +85,27 @@ noi_str = _fmt(t12['NET OPERATING INCOME (NOI)'])
 cfads_str = _fmt(t12['CASH FLOW AFTER DEBT SERVICE'])
 
 st.info(
-    f"**Report includes:**\n"
+    f"**Quarterly Report includes:**\n"
     f"- KPI Dashboard (NOI, DSCR, Occupancy, Cash-on-Cash)\n"
     f"- Property Overview ({prop['name']}, {prop['units']} units)\n"
-    f"- NOI & EGI Trend Chart with DSCR\n"
-    f"- T-12 Financial Snapshot (NOI: {noi_str})\n"
+    f"- Quarter-over-Quarter Performance Chart\n"
+    f"- Month-by-Month Financial Snapshot with Q Total & Prior Q Comparison\n"
+    f"- Monthly NOI & EGI Trend with DSCR\n"
     f"- Occupancy Trend Chart\n"
-    f"- Cash Flow Waterfall Chart\n"
+    f"- Cash Flow Waterfall (Quarterly)\n"
     f"- Renovation Progress\n"
-    f"- TIC Ownership & Distributions\n"
+    f"- TIC Ownership & Quarterly Distributions\n"
     f"- Escrow Accounts\n"
     f"- Key Metrics & Valuation Analysis"
 )
 
 # -- Generate Button --
-if st.button("Generate PDF Report", type="primary", use_container_width=True):
-    with st.spinner("Generating report with charts..."):
+if st.button("Generate Quarterly PDF Report", type="primary", use_container_width=True):
+    with st.spinner("Generating quarterly report with charts..."):
         try:
             pdf_bytes = generate_pdf()
             st.session_state.pdf_bytes = pdf_bytes
-            st.success("Report generated successfully!")
+            st.success("Quarterly report generated successfully!")
         except ImportError as e:
             st.error(
                 f"Missing dependency: {e}. "
@@ -115,9 +116,9 @@ if st.button("Generate PDF Report", type="primary", use_container_width=True):
 
 if 'pdf_bytes' in st.session_state:
     st.download_button(
-        label="Download Investor Report (PDF)",
+        label="Download Quarterly Investor Report (PDF)",
         data=st.session_state.pdf_bytes,
-        file_name=f"Groves_Investor_Report_{date.today().strftime('%Y%m%d')}.pdf",
+        file_name=f"Groves_Quarterly_Report_{date.today().strftime('%Y%m%d')}.pdf",
         mime="application/pdf",
         use_container_width=True,
     )
