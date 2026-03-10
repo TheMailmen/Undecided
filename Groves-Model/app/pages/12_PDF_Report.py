@@ -85,18 +85,15 @@ noi_str = _fmt(t12['NET OPERATING INCOME (NOI)'])
 cfads_str = _fmt(t12['CASH FLOW AFTER DEBT SERVICE'])
 
 st.info(
-    f"**Quarterly Report includes:**\n"
-    f"- KPI Dashboard (NOI, DSCR, Occupancy, Cash-on-Cash)\n"
-    f"- Property Overview ({prop['name']}, {prop['units']} units)\n"
-    f"- Quarter-over-Quarter Performance Chart\n"
-    f"- Month-by-Month Financial Snapshot with Q Total & Prior Q Comparison\n"
-    f"- Monthly NOI & EGI Trend with DSCR\n"
-    f"- Occupancy Trend Chart\n"
-    f"- Cash Flow Waterfall (Quarterly)\n"
-    f"- Renovation Progress\n"
-    f"- TIC Ownership & Quarterly Distributions\n"
-    f"- Escrow Accounts\n"
-    f"- Key Metrics & Valuation Analysis"
+    f"**Quarterly Report (5 pages) includes:**\n"
+    f"- **Pg 1** - KPI Dashboard, Property Overview, Q-over-Q Performance Chart, "
+    f"Month-by-Month Financial Snapshot\n"
+    f"- **Pg 2** - Occupancy Deep Dive: Unit Mix, Renovated vs Classic, "
+    f"Leasing Activity & Turnover, Loss-to-Lease, Rent Growth\n"
+    f"- **Pg 3** - NOI Trend, Cash Flow Waterfall, Renovations, "
+    f"TIC Distributions, Escrow, Valuation\n"
+    f"- **Pg 4** - Rent Comps (1BR & 2BR), Sale Comps, Operating Expense Breakdown\n"
+    f"- **Pg 5** - Capital Improvements & Property Condition (color-coded status)"
 )
 
 # -- Generate Button --

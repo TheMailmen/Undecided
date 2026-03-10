@@ -28,6 +28,14 @@ def _safe_div(num, den, default=0):
     return num / den
 
 
+def _safe_float(val, default=0):
+    """Safely convert a value to float."""
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Quarter helpers
 # ---------------------------------------------------------------------------
@@ -502,6 +510,114 @@ def load_report_data(report_quarter=None):
         for name in ['Real Estate Taxes', 'Property Insurance', 'Capital Reserves']:
             escrow[name] = {'total_deposits': 0, 'total_payments': 0, 'balance': 0}
 
+    # --- Market comps (rent comps + sale comps) ---
+    # CSV has mixed sections with varying columns; parse row-by-row
+    comps_path = _data_path('rent_comps.csv')
+    rent_comps_1br = []
+    rent_comps_2br = []
+    sale_comps = []
+    if os.path.exists(comps_path):
+        with open(comps_path) as f:
+            reader = csv.reader(f)
+            next(reader)  # skip file header
+            for cols in reader:
+                if len(cols) < 8:
+                    continue
+                section, num = cols[0], cols[1]
+                if num == '#':  # sub-header row
+                    continue
+                if 'ONE BEDROOM' in section:
+                    rent_comps_1br.append({
+                        'property': cols[2],
+                        'address': cols[3],
+                        'built': cols[4],
+                        'avg_sf': _safe_float(cols[5]),
+                        'rent': _safe_float(cols[6]),
+                        'rent_psf': _safe_float(cols[7]),
+                        'occ': _safe_float(cols[8]) if len(cols) > 8 else 0,
+                    })
+                elif 'TWO BEDROOM' in section:
+                    rent_comps_2br.append({
+                        'property': cols[2],
+                        'address': cols[3],
+                        'built': cols[4],
+                        'avg_sf': _safe_float(cols[5]),
+                        'rent': _safe_float(cols[6]),
+                        'rent_psf': _safe_float(cols[7]),
+                        'occ': _safe_float(cols[8]) if len(cols) > 8 else 0,
+                    })
+                elif 'SALE' in section:
+                    sale_comps.append({
+                        'property': cols[2],
+                        'address': cols[3],
+                        'close_date': cols[4],
+                        'units': int(_safe_float(cols[5])),
+                        'sale_price': _safe_float(cols[6]),
+                        'per_unit': _safe_float(cols[7]),
+                        'built': cols[8] if len(cols) > 8 else '',
+                    })
+
+    market_comps = {
+        'rent_comps_1br': rent_comps_1br,
+        'rent_comps_2br': rent_comps_2br,
+        'sale_comps': sale_comps,
+    }
+
+    # --- OpEx breakdown (top line items for the quarter) ---
+    opex_lines = []
+    in_opex = False
+    for _gl, acct, rtype in CHART_OF_ACCOUNTS:
+        if acct == 'OPERATING EXPENSES':
+            in_opex = True
+            continue
+        if acct == 'Total Operating Expenses':
+            in_opex = False
+            continue
+        if in_opex and rtype == 'line':
+            opex_lines.append(acct)
+
+    opex_detail = []
+    total_opex_q = snapshot['opex']
+    total_egi_q = snapshot['egi']
+    for acct in opex_lines:
+        amt = _sum_range(raw, q_months, acct)
+        if amt != 0:
+            opex_detail.append({
+                'account': acct,
+                'amount': amt,
+                'pct_of_opex': _safe_div(amt, total_opex_q),
+                'pct_of_egi': _safe_div(amt, total_egi_q),
+            })
+    # Sort by absolute amount descending
+    opex_detail.sort(key=lambda x: abs(x['amount']), reverse=True)
+
+    opex_breakdown = {
+        'detail': opex_detail,
+        'total': total_opex_q,
+        'egi': total_egi_q,
+        'expense_ratio': _safe_div(total_opex_q, total_egi_q),
+    }
+
+    # --- CapEx / Property condition ---
+    capex_path = _data_path('capex_profile.csv')
+    property_condition = []
+    if os.path.exists(capex_path):
+        cap = pd.read_csv(capex_path)
+        for _, row in cap.iterrows():
+            section = str(row.get('Section', ''))
+            detail = str(row.get('Detail', ''))
+            status = str(row.get('Status', ''))
+            if section == 'PROPERTY OVERVIEW' or not detail or detail == 'nan':
+                continue
+            if section == 'Current Condition & History':
+                continue
+            property_condition.append({
+                'system': section,
+                'detail': detail,
+                'updated': str(row.get('Updated', '')),
+                'status': status if status != 'nan' else '',
+            })
+
     # --- Build return dict ---
     q_label = _quarter_label(year, qnum)
     prior_label = _quarter_label(*prior_q) if prior_q else None
@@ -527,4 +643,7 @@ def load_report_data(report_quarter=None):
         'tic': tic_dist,
         'escrow': escrow,
         't12_months': len(t12_months),
+        'market_comps': market_comps,
+        'opex_breakdown': opex_breakdown,
+        'property_condition': property_condition,
     }

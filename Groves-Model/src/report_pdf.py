@@ -19,6 +19,11 @@ BODY = (0, 0, 0)
 LABEL = (44, 62, 80)
 
 
+def _sanitize(text):
+    """Replace Unicode characters that Helvetica can't render."""
+    return text.replace('\u2014', '-').replace('\u2013', '-').replace('\u2019', "'").replace('\u2018', "'").replace('\u201c', '"').replace('\u201d', '"').replace('\u2022', '*').replace('\u2713', 'Y').replace('\u00b7', '.')
+
+
 def _dollar(v, show_sign=False):
     if v is None:
         return '-'
@@ -150,7 +155,7 @@ class InvestorReport(FPDF):
         if align_list is None:
             align_list = ['L'] + ['R'] * (len(cols) - 1)
         for col, w, a in zip(cols, widths, align_list):
-            self.cell(w, 5.5, str(col), border=0, fill=bool(fill), align=a)
+            self.cell(w, 5.5, _sanitize(str(col)), border=0, fill=bool(fill), align=a)
         self.ln()
 
     def table_header(self, cols, widths, align_list=None):
@@ -160,7 +165,7 @@ class InvestorReport(FPDF):
         if align_list is None:
             align_list = ['L'] + ['R'] * (len(cols) - 1)
         for col, w, a in zip(cols, widths, align_list):
-            self.cell(w, 6, str(col), fill=True, align=a)
+            self.cell(w, 6, _sanitize(str(col)), fill=True, align=a)
         self.ln()
 
     def ensure_space(self, needed_mm):
@@ -516,6 +521,185 @@ class InvestorReport(FPDF):
             )
 
 
+    # -- Page 4: Market Comps, OpEx, Property Condition --
+
+    def build_page4(self, charts):
+        self.add_page()
+        d = self.data
+        mc = d.get('market_comps', {})
+
+        # --- Rent Comps: 1BR ---
+        comps_1br = mc.get('rent_comps_1br', [])
+        if comps_1br:
+            self.section_bar('RENT COMPARABLES - ONE BEDROOM')
+            rw = [50, 18, 18, 25, 25, 25]
+            self.table_header(
+                ['Property', 'Built', 'Avg SF', 'Avg Rent', '$/SF', 'Occ %'], rw)
+            for i, c in enumerate(comps_1br):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                self.table_row(
+                    [c['property'], str(c['built']), f"{c['avg_sf']:,.0f}",
+                     _dollar(c['rent']), f"${c['rent_psf']:.2f}",
+                     _pct(c['occ'], 0)],
+                    rw, fill=fill,
+                )
+            # Groves row for comparison
+            p = d['property']
+            groves_1br_rent = d['rent_roll']['avg_rent']  # approximate
+            self.table_row(
+                ['THE GROVES (Subject)', str(p['year_built']), '765',
+                 _dollar(groves_1br_rent), '', _pct(d['rent_roll']['occupancy'], 0)],
+                rw, bold=True, fill=(232, 245, 233),
+            )
+            self.ln(3)
+
+        # --- Rent Comps: 2BR ---
+        comps_2br = mc.get('rent_comps_2br', [])
+        if comps_2br:
+            self.ensure_space(50)
+            self.section_bar('RENT COMPARABLES - TWO BEDROOM')
+            self.table_header(
+                ['Property', 'Built', 'Avg SF', 'Avg Rent', '$/SF', 'Occ %'], rw)
+            for i, c in enumerate(comps_2br):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                self.table_row(
+                    [c['property'], str(c['built']), f"{c['avg_sf']:,.0f}",
+                     _dollar(c['rent']), f"${c['rent_psf']:.2f}",
+                     _pct(c['occ'], 0)],
+                    rw, fill=fill,
+                )
+            self.table_row(
+                ['THE GROVES (Subject)', str(p['year_built']), '890',
+                 _dollar(groves_1br_rent), '', _pct(d['rent_roll']['occupancy'], 0)],
+                rw, bold=True, fill=(232, 245, 233),
+            )
+            self.ln(3)
+
+        # --- Sale Comps ---
+        sale_comps = mc.get('sale_comps', [])
+        if sale_comps:
+            self.ensure_space(50)
+            self.section_bar('SALE COMPARABLES')
+            sw = [45, 20, 18, 30, 28, 20]
+            self.table_header(
+                ['Property', 'Close', 'Units', 'Sale Price', '$/Unit', 'Built'], sw)
+            for i, c in enumerate(sale_comps):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                self.table_row(
+                    [c['property'], c['close_date'], str(c['units']),
+                     _dollar(c['sale_price']), _dollar(c['per_unit']),
+                     str(c.get('built', ''))],
+                    sw, fill=fill,
+                )
+            # Groves implied value
+            bov = d['valuation']['bov_mid']
+            per_unit = bov / p['units'] if p['units'] else 0
+            self.table_row(
+                ['THE GROVES (BOV Mid)', '', str(p['units']),
+                 _dollar(bov), _dollar(per_unit), str(p['year_built'])],
+                sw, bold=True, fill=(232, 245, 233),
+            )
+            self.ln(3)
+
+        # --- OpEx Breakdown ---
+        ob = d.get('opex_breakdown', {})
+        detail = ob.get('detail', [])
+        if detail:
+            self.ensure_space(70)
+            self.section_bar(f"OPERATING EXPENSE BREAKDOWN - {d['quarter_label'].upper()}")
+            ow = [55, 30, 28, 28, 20]
+            self.table_header(
+                ['Expense Category', 'Q Amount', '% of OpEx', '% of EGI', 'Ann.'], ow)
+            # Show top 12 items
+            for i, item in enumerate(detail[:12]):
+                fill = LIGHT_GRAY if i % 2 == 0 else None
+                ann = item['amount'] * 4  # annualize quarterly
+                self.table_row(
+                    [f"  {item['account']}", _dollar(item['amount']),
+                     _pct(item['pct_of_opex'], 1), _pct(item['pct_of_egi'], 1),
+                     _dollar(ann)],
+                    ow, fill=fill,
+                )
+            # If more items, show "Other" roll-up
+            if len(detail) > 12:
+                other_amt = sum(x['amount'] for x in detail[12:])
+                self.table_row(
+                    ['  Other', _dollar(other_amt),
+                     _pct(other_amt / ob['total'] if ob['total'] else 0, 1),
+                     _pct(other_amt / ob['egi'] if ob['egi'] else 0, 1),
+                     _dollar(other_amt * 4)],
+                    ow, fill=LIGHT_GRAY,
+                )
+            self.table_row(
+                ['Total Operating Expenses', _dollar(ob['total']),
+                 '100.0%', _pct(ob['expense_ratio'], 1),
+                 _dollar(ob['total'] * 4)],
+                ow, bold=True, fill=(232, 245, 233),
+            )
+            self.ln(3)
+
+    # -- Page 5: Property Condition --
+
+    def build_page5(self, charts):
+        pc = self.data.get('property_condition', [])
+        if not pc:
+            return
+
+        self.add_page()
+
+        self.section_bar('CAPITAL IMPROVEMENTS & PROPERTY CONDITION')
+
+        pw = [40, 80, 22, 22]
+        self.table_header(['System', 'Detail', 'Updated', 'Status'], pw)
+
+        # Color-code status
+        status_colors = {
+            'Good': (232, 245, 233),      # light green
+            'Monitor': (255, 249, 196),     # light yellow
+            'Watch': (253, 237, 236),       # light red
+            'Planned': (232, 234, 237),     # light gray
+        }
+
+        current_system = ''
+        for i, item in enumerate(pc):
+            status = item['status']
+            fill = status_colors.get(status, LIGHT_GRAY if i % 2 == 0 else None)
+
+            # Show system name only on first row of each group
+            system_label = item['system'] if item['system'] != current_system else ''
+            current_system = item['system']
+
+            # Truncate long detail text
+            detail_text = item['detail']
+            if len(detail_text) > 55:
+                detail_text = detail_text[:52] + '...'
+
+            self.table_row(
+                [system_label, detail_text, item['updated'], status],
+                pw, fill=fill,
+                bold=(system_label != ''),
+            )
+
+        self.ln(5)
+
+        # Legend
+        self.set_font('Helvetica', '', 7)
+        self.set_text_color(*GRAY)
+        legend_items = [
+            ('Good', (232, 245, 233)),
+            ('Monitor', (255, 249, 196)),
+            ('Watch', (253, 237, 236)),
+            ('Planned', (232, 234, 237)),
+        ]
+        self.cell(20, 4, 'Legend:', align='L')
+        for label, color in legend_items:
+            self.set_fill_color(*color)
+            self.cell(4, 4, '', fill=True)
+            self.cell(1, 4, '')
+            self.cell(18, 4, label, align='L')
+        self.ln()
+
+
 def build_report(data, charts, out_path=None):
     """Generate the quarterly investor report PDF."""
     if out_path is None:
@@ -528,5 +712,7 @@ def build_report(data, charts, out_path=None):
     pdf.build_page1(charts)
     pdf.build_page2(charts)
     pdf.build_page3(charts)
+    pdf.build_page4(charts)
+    pdf.build_page5(charts)
     pdf.output(out_path)
     return out_path
